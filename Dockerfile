@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY . .
 
-RUN gradle clean build -x test
+RUN gradle --no-daemon clean build -x test --stacktrace --info
 
 # ===== 2단계: run =====
 FROM eclipse-temurin:21-jre
