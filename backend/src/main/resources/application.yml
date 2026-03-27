@@ -3,7 +3,7 @@ server:
 
 spring:
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:local}
+    active: ${SPRING_PROFILES_ACTIVE:prod}
 
   servlet:
     multipart:
@@ -32,7 +32,7 @@ spring:
             client-name: kakao
             client-id: ${KAKAO_CLIENT_ID}
             authorization-grant-type: authorization_code
-            redirect-uri: ${KAKAO_REDIRECT_URI}
+            redirect-uri: ${KAKAO_REDIRECT_URI:{baseUrl}/login/oauth2/code/{registrationId}}
             scope:
               - profile_nickname
 
@@ -40,6 +40,7 @@ spring:
             client-name: google
             client-id: ${GOOGLE_CLIENT_ID}
             client-secret: ${GOOGLE_CLIENT_SECRET}
+            redirect-uri: ${GOOGLE_REDIRECT_URI:{baseUrl}/login/oauth2/code/{registrationId}}
             scope:
               - profile
               - email
@@ -53,13 +54,13 @@ spring:
 
 app:
   ai:
-    base-url: ${AI_BASE_URL:http://localhost:8000}
-    stt-path: /stt
-    refine-path: /refine
+    base-url: ${AI_BASE_URL}
+    stt-path: ${AI_STT_PATH:/stt}
+    refine-path: ${AI_REFINE_PATH:/refine}
 
   jwt:
     secret: ${JWT_SECRET}
-    access-token-expire-ms: 86400000
+    access-token-expire-ms: ${JWT_ACCESS_TOKEN_EXPIRE_MS:86400000}
 
   oauth2:
     redirect-uri: ${APP_OAUTH2_REDIRECT_URI}
