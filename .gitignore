@@ -2,6 +2,7 @@ HELP.md
 
 # macOS
 .DS_Store
+storage/audio/
 
 # Gradle
 .gradle/
