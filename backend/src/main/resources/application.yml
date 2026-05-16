@@ -4,7 +4,7 @@ server:
 
 spring:
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:prod}
+    active: ${SPRING_PROFILES_ACTIVE:local}
 
   servlet:
     multipart:
@@ -19,55 +19,11 @@ spring:
       hibernate:
         format_sql: true
 
-  datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
-    driver-class-name: com.mysql.cj.jdbc.Driver
-
-  security:
-    oauth2:
-      client:
-        registration:
-          kakao:
-            client-name: kakao
-            client-id: ${KAKAO_CLIENT_ID}
-            authorization-grant-type: authorization_code
-            redirect-uri: ${KAKAO_REDIRECT_URI:{baseUrl}/login/oauth2/code/{registrationId}}
-            scope:
-              - profile_nickname
-
-          google:
-            client-name: google
-            client-id: ${GOOGLE_CLIENT_ID}
-            client-secret: ${GOOGLE_CLIENT_SECRET}
-            redirect-uri: ${GOOGLE_REDIRECT_URI:{baseUrl}/login/oauth2/code/{registrationId}}
-            scope:
-              - profile
-              - email
-
-        provider:
-          kakao:
-            authorization-uri: https://kauth.kakao.com/oauth/authorize
-            token-uri: https://kauth.kakao.com/oauth/token
-            user-info-uri: https://kapi.kakao.com/v2/user/me
-            user-name-attribute: id
-
 app:
   ai:
-    base-url: ${AI_BASE_URL}
+    base-url: ${AI_BASE_URL:http://localhost:8000}
     stt-path: ${AI_STT_PATH:/stt}
     refine-path: ${AI_REFINE_PATH:/refine}
 
-  jwt:
-    secret: ${JWT_SECRET}
-    access-token-expire-ms: ${JWT_ACCESS_TOKEN_EXPIRE_MS:86400000}
-
-  oauth2:
-    redirect-uri: ${APP_OAUTH2_REDIRECT_URI}
-
-  admin:
-    invite-code: ${ADMIN_INVITE_CODE:a}
-
 file:
-  upload-dir: ${FILE_UPLOAD_DIR:storage/chunks}
+  upload-dir: ${FILE_UPLOAD_DIR:storage/audio}

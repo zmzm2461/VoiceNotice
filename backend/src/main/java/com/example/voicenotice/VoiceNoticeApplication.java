@@ -10,5 +10,4 @@ public class VoiceNoticeApplication {
     public static void main(String[] args) {
         SpringApplication.run(VoiceNoticeApplication.class, args);
     }
-
 }

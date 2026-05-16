@@ -1,0 +1,31 @@
+services:
+  backend:
+    build: ./backend
+    container_name: voicenotice-backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      PORT: 8080
+      AI_BASE_URL: http://ai-server:8000
+      AI_STT_PATH: /stt
+      AI_REFINE_PATH: /refine
+      FILE_UPLOAD_DIR: /app/storage/audio
+
+      DB_URL: ${DB_URL}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+    volumes:
+      - backend-audio:/app/storage/audio
+    depends_on:
+      - ai-server
+
+  ai-server:
+    build: ./ai-server
+    container_name: voicenotice-ai
+    ports:
+      - "8000:8000"
+
+volumes:
+  backend-audio:
