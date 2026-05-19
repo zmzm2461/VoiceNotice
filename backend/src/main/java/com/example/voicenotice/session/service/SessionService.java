@@ -8,9 +8,15 @@ import com.example.voicenotice.device.service.DeviceService;
 import com.example.voicenotice.notification.entity.PushToken;
 import com.example.voicenotice.notification.repository.PushTokenRepository;
 import com.example.voicenotice.notification.service.PushNotificationService;
+import com.example.voicenotice.device.service.DeviceCommandService;
 import com.example.voicenotice.session.entity.IntercomSession;
 import com.example.voicenotice.session.entity.SessionStatus;
 import com.example.voicenotice.session.repository.IntercomSessionRepository;
+import com.example.voicenotice.stt.dto.CallStatusMessage;
+import com.example.voicenotice.quickreply.entity.QuickReply;
+import com.example.voicenotice.quickreply.service.QuickReplyService;
+import com.example.voicenotice.stt.dto.ReplyMessage;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +32,9 @@ public class SessionService {
     private final PushNotificationService pushNotificationService;
     private final PushTokenRepository pushTokenRepository;
     private final DevicePairingRepository devicePairingRepository;
+    private final SimpMessagingTemplate messagingTemplate;
+    private final QuickReplyService quickReplyService;
+    private final DeviceCommandService deviceCommandService;
 
 
     @Transactional
@@ -34,6 +43,15 @@ public class SessionService {
         device.heartbeat();
 
         IntercomSession session = sessionRepository.save(new IntercomSession(device));
+
+        messagingTemplate.convertAndSend(
+                "/topic/sessions/" + session.getId() + "/status",
+                new CallStatusMessage(
+                        session.getId(),
+                        "CALLING",
+                        "방문자가 인터폰을 호출했습니다."
+                )
+        );
 
         List<DevicePairing> pairings =
                 devicePairingRepository.findByDevice_DeviceUidAndUnpairedAtIsNull(deviceUid);
@@ -64,6 +82,32 @@ public class SessionService {
     public IntercomSession close(Long sessionId) {
         IntercomSession session = getOrThrow(sessionId);
         session.close();
+
+        messagingTemplate.convertAndSend(
+                "/topic/sessions/" + session.getId() + "/status",
+                new CallStatusMessage(
+                        session.getId(),
+                        "ENDED",
+                        "통화가 종료되었습니다."
+                )
+        );
+
+        return session;
+    }
+
+    @Transactional
+    public IntercomSession connect(Long sessionId) {
+        IntercomSession session = getOrThrow(sessionId);
+
+        messagingTemplate.convertAndSend(
+                "/topic/sessions/" + session.getId() + "/status",
+                new CallStatusMessage(
+                        session.getId(),
+                        "TALKING",
+                        "통화가 연결되었습니다."
+                )
+        );
+
         return session;
     }
 
@@ -78,6 +122,32 @@ public class SessionService {
                 deviceUid,
                 SessionStatus.OPEN
         );
+    }
+
+    @Transactional
+    public void sendReply(Long sessionId, Integer replyCode) {
+
+        IntercomSession session = getOrThrow(sessionId);
+
+        QuickReply quickReply =
+                quickReplyService.getByReplyCode(replyCode);
+
+        deviceCommandService.createPlayReplyCommand(
+                session.getDevice(),
+                replyCode
+        );
+
+        messagingTemplate.convertAndSend(
+                "/topic/sessions/" + session.getId() + "/messages",
+                new ReplyMessage(
+                        session.getId(),
+                        "USER",
+                        quickReply.getText()
+                )
+        );
+
+        // TODO:
+        // 아두이노로 replyCode 전달
     }
 
 }

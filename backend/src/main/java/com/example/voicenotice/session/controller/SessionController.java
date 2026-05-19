@@ -3,6 +3,7 @@ package com.example.voicenotice.session.controller;
 import com.example.voicenotice.common.response.ApiResponse;
 import com.example.voicenotice.session.entity.IntercomSession;
 import com.example.voicenotice.session.service.SessionService;
+import com.example.voicenotice.session.dto.SessionReplyRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -37,6 +38,12 @@ public class SessionController {
         return ResponseEntity.ok(ApiResponse.ok(new EndSessionResponse(session.getId(), session.getStatus().name())));
     }
 
+    @PostMapping("/{sessionId}/connect")
+    public ResponseEntity<Void> connect(@PathVariable Long sessionId) {
+        sessionService.connect(sessionId);
+        return ResponseEntity.ok().build();
+    }
+
     @GetMapping
     public ResponseEntity<ApiResponse<List<SessionSummaryResponse>>> getByDevice(@RequestParam String deviceUid) {
         List<SessionSummaryResponse> response = sessionService.getByDeviceUid(deviceUid).stream()
@@ -56,6 +63,20 @@ public class SessionController {
                         )
                 )))
                 .orElseGet(() -> ResponseEntity.ok(ApiResponse.ok(null)));
+    }
+
+    @PostMapping("/{sessionId}/reply")
+    public ResponseEntity<ApiResponse<Void>> sendReply(
+            @PathVariable Long sessionId,
+            @RequestBody SessionReplyRequest request
+    ) {
+
+        sessionService.sendReply(
+                sessionId,
+                request.replyCode()
+        );
+
+        return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
 }

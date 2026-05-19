@@ -29,9 +29,16 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/auth/**",
+                                "/oauth2/**",
+                                "/login/oauth2/**",
                                 "/ws/**"
                         ).permitAll()
                         .anyRequest().permitAll()
+                )
+                .oauth2Login(oauth2 -> oauth2
+                        .authorizationEndpoint(endpoint -> endpoint
+                                .baseUri("/oauth2/authorization")
+                        )
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
