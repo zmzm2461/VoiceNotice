@@ -12,6 +12,7 @@ import com.example.voicenotice.transcript.entity.TranscriptChunk;
 import com.example.voicenotice.transcript.repository.FinalTranscriptRepository;
 import com.example.voicenotice.transcript.repository.TranscriptChunkRepository;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.scheduling.annotation.Async;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -36,6 +37,20 @@ public class SttOrchestrationService {
     private final AudioChunkRepository audioChunkRepository;
     private final IntercomLogService intercomLogService;
     private final SimpMessagingTemplate messagingTemplate;
+
+
+    @Async
+    @Transactional
+    public void transcribeChunkAsync(Long audioChunkId, boolean isLast) {
+        AudioChunk audioChunk = audioChunkRepository.findById(audioChunkId)
+                .orElseThrow(() -> new IllegalArgumentException("AudioChunk not found: " + audioChunkId));
+
+        TranscriptChunk transcriptChunk = transcribeChunk(audioChunk);
+
+        if (isLast) {
+            finalizeSession(audioChunk.getSession());
+        }
+    }
 
 
     @Transactional

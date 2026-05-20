@@ -75,21 +75,16 @@ public class AudioService {
 
         AudioChunk savedChunk = audioChunkRepository.save(audioChunk);
 
-        TranscriptChunk transcriptChunk =
-                sttOrchestrationService.transcribeChunk(savedChunk);
-
-        String partialText =
-                sttOrchestrationService.getPartialText(sessionId);
-
-        if (isLast) {
-            sttOrchestrationService.finalizeSession(session);
-        }
+        sttOrchestrationService.transcribeChunkAsync(
+                savedChunk.getId(),
+                isLast
+        );
 
         return new ChunkUploadResponse(
                 sessionId,
                 chunkOrder,
-                transcriptChunk.getRawText(),
-                partialText,
+                null,
+                null,
                 isLast
         );
     }
