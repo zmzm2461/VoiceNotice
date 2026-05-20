@@ -31,7 +31,7 @@ async def stt(file: UploadFile = File(...)):
         tmp.write(content)
         tmp.close()
 
-        segments, info = model.transcribe(tmp.name, beam_size=5)
+        segments, info = model.transcribe(tmp.name, beam_size=1)
         text = "".join([seg.text for seg in segments]).strip()
 
         return SttResponse(
