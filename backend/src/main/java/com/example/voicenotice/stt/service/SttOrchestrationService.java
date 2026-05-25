@@ -39,7 +39,7 @@ public class SttOrchestrationService {
     private final SimpMessagingTemplate messagingTemplate;
 
 
-    @Async
+    @Async("sttTaskExecutor")
     @Transactional
     public void transcribeChunkAsync(Long audioChunkId, boolean isLast) {
         AudioChunk audioChunk = audioChunkRepository.findById(audioChunkId)
