@@ -25,4 +25,14 @@ public class IntercomLogController {
     public ResponseEntity<ApiResponse<IntercomLogResponse>> get(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.ok(intercomLogService.get(id)));
     }
+
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<List<IntercomLogResponse>>> search(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String intent
+    ) {
+        return ResponseEntity.ok(
+                ApiResponse.ok(intercomLogService.search(keyword, intent))
+        );
+    }
 }

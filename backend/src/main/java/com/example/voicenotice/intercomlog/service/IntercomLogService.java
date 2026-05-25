@@ -81,6 +81,39 @@ public class IntercomLogService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public List<IntercomLogResponse> search(String keyword, String intent) {
+
+        List<IntercomLog> logs;
+
+        boolean hasKeyword = keyword != null && !keyword.isBlank();
+        boolean hasIntent = intent != null && !intent.isBlank();
+
+        if (hasKeyword && hasIntent) {
+            logs = intercomLogRepository
+                    .findByIntentAndVisitorTextContainingOrIntentAndSummaryContainingOrderByCreatedAtDesc(
+                            intent,
+                            keyword,
+                            intent,
+                            keyword
+                    );
+        } else if (hasKeyword) {
+            logs = intercomLogRepository
+                    .findByVisitorTextContainingOrSummaryContainingOrderByCreatedAtDesc(
+                            keyword,
+                            keyword
+                    );
+        } else if (hasIntent) {
+            logs = intercomLogRepository.findByIntentOrderByCreatedAtDesc(intent);
+        } else {
+            logs = intercomLogRepository.findAll();
+        }
+
+        return logs.stream()
+                .map(IntercomLogResponse::from)
+                .toList();
+    }
+
     private String classifyIntent(String text) {
         if (text == null) {
             return "UNKNOWN";
