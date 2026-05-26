@@ -125,9 +125,15 @@ public class SessionService {
     }
 
     @Transactional
-    public void sendReply(Long sessionId, Integer replyCode) {
-
+    public void sendReply(Long userId, Long sessionId, Integer replyCode) {
         IntercomSession session = getOrThrow(sessionId);
+
+        devicePairingRepository
+                .findByDevice_DeviceUidAndUser_IdAndUnpairedAtIsNull(
+                        session.getDevice().getDeviceUid(),
+                        userId
+                )
+                .orElseThrow(() -> new IllegalArgumentException("해당 기기에 대한 권한이 없습니다."));
 
         QuickReply quickReply =
                 quickReplyService.getByReplyCode(replyCode);
@@ -145,9 +151,6 @@ public class SessionService {
                         quickReply.getText()
                 )
         );
-
-        // TODO:
-        // 아두이노로 replyCode 전달
     }
 
 }

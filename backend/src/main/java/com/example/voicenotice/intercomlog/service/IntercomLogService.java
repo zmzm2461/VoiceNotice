@@ -1,5 +1,8 @@
 package com.example.voicenotice.intercomlog.service;
 
+import com.example.voicenotice.common.exception.NotFoundException;
+import com.example.voicenotice.device.entity.DevicePairing;
+import com.example.voicenotice.device.repository.DevicePairingRepository;
 import com.example.voicenotice.intercomlog.dto.IntercomLogResponse;
 import com.example.voicenotice.intercomlog.entity.IntercomLog;
 import com.example.voicenotice.intercomlog.repository.IntercomLogRepository;
@@ -17,6 +20,7 @@ import java.util.List;
 public class IntercomLogService {
 
     private final IntercomLogRepository intercomLogRepository;
+    private final DevicePairingRepository devicePairingRepository;
     private final TextRefinerClient textRefinerClient;
     private final PushNotificationService pushNotificationService;
 
@@ -82,35 +86,65 @@ public class IntercomLogService {
     }
 
     @Transactional(readOnly = true)
-    public List<IntercomLogResponse> search(String keyword, String intent) {
+    public List<IntercomLogResponse> searchMyLogs(Long userId, String keyword) {
+        List<Long> deviceIds = getMyDeviceIds(userId);
 
-        List<IntercomLog> logs;
-
-        boolean hasKeyword = keyword != null && !keyword.isBlank();
-        boolean hasIntent = intent != null && !intent.isBlank();
-
-        if (hasKeyword && hasIntent) {
-            logs = intercomLogRepository
-                    .findByIntentAndVisitorTextContainingOrIntentAndSummaryContainingOrderByCreatedAtDesc(
-                            intent,
-                            keyword,
-                            intent,
-                            keyword
-                    );
-        } else if (hasKeyword) {
-            logs = intercomLogRepository
-                    .findByVisitorTextContainingOrSummaryContainingOrderByCreatedAtDesc(
-                            keyword,
-                            keyword
-                    );
-        } else if (hasIntent) {
-            logs = intercomLogRepository.findByIntentOrderByCreatedAtDesc(intent);
-        } else {
-            logs = intercomLogRepository.findAll();
+        if (deviceIds.isEmpty()) {
+            return List.of();
         }
 
-        return logs.stream()
+        if (keyword == null || keyword.isBlank()) {
+            return getMyLogs(userId);
+        }
+
+        return intercomLogRepository
+                .findByDevice_IdInAndVisitorTextContainingOrDevice_IdInAndSummaryContainingOrderByCreatedAtDesc(
+                        deviceIds,
+                        keyword,
+                        deviceIds,
+                        keyword
+                )
+                .stream()
                 .map(IntercomLogResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<IntercomLogResponse> getLogs() {
+        return intercomLogRepository.findAllByOrderByCreatedAtDesc()
+                .stream()
+                .map(IntercomLogResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<IntercomLogResponse> getMyLogs(Long userId) {
+        List<Long> deviceIds = getMyDeviceIds(userId);
+
+        if (deviceIds.isEmpty()) {
+            return List.of();
+        }
+
+        return intercomLogRepository.findByDevice_IdInOrderByCreatedAtDesc(deviceIds)
+                .stream()
+                .map(IntercomLogResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public IntercomLogResponse getMyLog(Long userId, Long logId) {
+        List<Long> deviceIds = getMyDeviceIds(userId);
+
+        IntercomLog log = intercomLogRepository.findByIdAndDevice_IdIn(logId, deviceIds)
+                .orElseThrow(() -> new NotFoundException("인터폰 대화 기록 없음"));
+
+        return IntercomLogResponse.from(log);
+    }
+
+    private List<Long> getMyDeviceIds(Long userId) {
+        return devicePairingRepository.findByUser_IdAndUnpairedAtIsNull(userId)
+                .stream()
+                .map(pairing -> pairing.getDevice().getId())
                 .toList();
     }
 

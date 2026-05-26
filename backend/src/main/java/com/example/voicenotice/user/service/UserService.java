@@ -1,5 +1,6 @@
 package com.example.voicenotice.user.service;
 
+import com.example.voicenotice.user.dto.UserResponse;
 import com.example.voicenotice.user.entity.User;
 import com.example.voicenotice.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,5 +29,11 @@ public class UserService {
     public User getById(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+    }
+
+    @Transactional(readOnly = true)
+    public UserResponse getMe(Long userId) {
+        User user = getById(userId);
+        return UserResponse.from(user);
     }
 }

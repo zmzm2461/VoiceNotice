@@ -16,4 +16,5 @@ public interface DevicePairingRepository extends JpaRepository<DevicePairing, Lo
     List<DevicePairing> findByUser_IdAndUnpairedAtIsNull(Long userId);
 
     List<DevicePairing> findByDevice_DeviceUidAndUnpairedAtIsNull(String deviceUid);
+
 }

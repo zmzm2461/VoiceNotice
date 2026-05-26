@@ -5,6 +5,7 @@ import com.example.voicenotice.session.entity.IntercomSession;
 import com.example.voicenotice.session.service.SessionService;
 import com.example.voicenotice.session.dto.SessionReplyRequest;
 import org.springframework.http.ResponseEntity;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -68,10 +69,17 @@ public class SessionController {
     @PostMapping("/{sessionId}/reply")
     public ResponseEntity<ApiResponse<Void>> sendReply(
             @PathVariable Long sessionId,
-            @RequestBody SessionReplyRequest request
+            @RequestBody SessionReplyRequest request,
+            HttpServletRequest httpRequest
     ) {
+        Long userId = (Long) httpRequest.getAttribute("userId");
+
+        if (userId == null) {
+            throw new IllegalArgumentException("로그인이 필요합니다.");
+        }
 
         sessionService.sendReply(
+                userId,
                 sessionId,
                 request.replyCode()
         );

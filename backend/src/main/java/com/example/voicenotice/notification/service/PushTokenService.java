@@ -17,7 +17,10 @@ public class PushTokenService {
     public void save(String token, User user) {
 
         repository.findByToken(token)
-                .orElseGet(() -> repository.save(new PushToken(token, user)));
+                .ifPresentOrElse(
+                        existing -> existing.updateUser(user),
+                        () -> repository.save(new PushToken(token, user))
+                );
     }
 
     public List<PushToken> findAll() {

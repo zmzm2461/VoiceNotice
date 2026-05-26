@@ -26,4 +26,8 @@ public class PushToken {
         this.token = token;
         this.user = user;
     }
+
+    public void updateUser(User user) {
+        this.user = user;
+    }
 }

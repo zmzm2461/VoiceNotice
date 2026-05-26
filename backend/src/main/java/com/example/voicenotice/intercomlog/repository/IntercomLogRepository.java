@@ -17,10 +17,16 @@ public interface IntercomLogRepository extends JpaRepository<IntercomLog, Long> 
 
     List<IntercomLog> findByIntentOrderByCreatedAtDesc(String intent);
 
-    List<IntercomLog> findByIntentAndVisitorTextContainingOrIntentAndSummaryContainingOrderByCreatedAtDesc(
-            String intent1,
+    List<IntercomLog> findByDevice_IdInAndVisitorTextContainingOrDevice_IdInAndSummaryContainingOrderByCreatedAtDesc(
+            List<Long> deviceIds1,
             String visitorText,
-            String intent2,
+            List<Long> deviceIds2,
             String summary
     );
+
+    List<IntercomLog> findAllByOrderByCreatedAtDesc();
+
+    List<IntercomLog> findByDevice_IdInOrderByCreatedAtDesc(List<Long> deviceIds);
+
+    Optional<IntercomLog> findByIdAndDevice_IdIn(Long id, List<Long> deviceIds);
 }
