@@ -28,11 +28,30 @@ async def stt(file: UploadFile = File(...)):
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
     try:
         content = await file.read()
+        print("uploaded filename:", file.filename)
+        print("uploaded size:", len(content))
+
         tmp.write(content)
         tmp.close()
 
-        segments, info = model.transcribe(tmp.name, beam_size=1)
-        text = "".join([seg.text for seg in segments]).strip()
+        print("temp file:", tmp.name)
+        print("temp file size:", os.path.getsize(tmp.name))
+
+        segments, info = model.transcribe(
+            tmp.name,
+            beam_size=5,
+            language="ko",
+            vad_filter=False
+        )
+
+        segment_list = list(segments)
+        print("segment count:", len(segment_list))
+        for seg in segment_list:
+            print("segment:", seg.start, seg.end, seg.text)
+
+        text = "".join([seg.text for seg in segment_list]).strip()
+        print("STT text:", text)
+        print("language:", getattr(info, "language", None))
 
         return SttResponse(
             rawText=text,
@@ -43,7 +62,6 @@ async def stt(file: UploadFile = File(...)):
             os.unlink(tmp.name)
         except Exception:
             pass
-
 
 # ======================
 # Refine 관련
