@@ -48,12 +48,6 @@ public class IntercomLogController {
         );
     }
 
-    @GetMapping
-    public ResponseEntity<ApiResponse<List<IntercomLogResponse>>> getLogs() {
-        return ResponseEntity.ok(
-                ApiResponse.ok(intercomLogService.getLogs())
-        );
-    }
 
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<List<IntercomLogResponse>>> searchMyLogs(
