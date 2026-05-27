@@ -29,21 +29,13 @@ public class AuthService {
         String jwt = jwtTokenProvider.createAccessToken(user);
 
         return new LoginResponse(
-                user.getId(),
-                user.getProvider(),
-                user.getName(),
-                user.getEmail(),
-                user.getRole(),
-                jwt
+                jwt,
+                user.getName()
         );
     }
 
     public record LoginResponse(
-            Long userId,
-            String provider,
-            String name,
-            String email,
-            String role,
-            String accessToken
+            String accessToken,
+            String name
     ) {}
 }
