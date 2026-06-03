@@ -41,4 +41,9 @@ public class TranscriptChunk {
         this.confidence = confidence;
         this.createdAt = LocalDateTime.now();
     }
+
+    public void updateText(String rawText) {
+        this.rawText = rawText;
+    }
+
 }

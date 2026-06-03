@@ -47,4 +47,19 @@ public class Device {
         this.lastSeenAt = LocalDateTime.now();
         this.updatedAt = this.lastSeenAt;
     }
+
+    public void activate() {
+        this.status = "ACTIVE";
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void deactivate() {
+        this.status = "INACTIVE";
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void delete() {
+        this.status = "DELETED";
+        this.updatedAt = LocalDateTime.now();
+    }
 }

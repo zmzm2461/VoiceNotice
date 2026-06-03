@@ -64,4 +64,23 @@ public class IntercomLogController {
                 ApiResponse.ok(intercomLogService.searchMyLogs(userId, keyword))
         );
     }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteMyLog(
+            @PathVariable Long id,
+            HttpServletRequest request
+    ) {
+        Long userId = (Long) request.getAttribute("userId");
+
+        if (userId == null) {
+            throw new IllegalArgumentException("로그인이 필요합니다.");
+        }
+
+        intercomLogService.deleteMyLog(userId, id);
+
+        return ResponseEntity.ok(
+                ApiResponse.ok(null, "기록이 삭제되었습니다.")
+        );
+    }
+
 }

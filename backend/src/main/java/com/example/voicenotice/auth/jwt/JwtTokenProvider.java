@@ -55,4 +55,14 @@ public class JwtTokenProvider {
                         .getSubject()
         );
     }
+
+    public String getRole(String token) {
+        return Jwts.parser()
+                .verifyWith(key)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload()
+                .get("role", String.class);
+    }
+
 }

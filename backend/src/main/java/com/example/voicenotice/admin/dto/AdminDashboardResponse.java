@@ -1,4 +1,11 @@
 package com.example.voicenotice.admin.dto;
 
-public class AdminDashboardResponse {
+public record AdminDashboardResponse(
+        long todaySessionCount,
+        long activeSessionCount,
+        long totalDeviceCount,
+        long todayLogCount,
+        double averageResponseSeconds,
+        double sttAccuracy
+) {
 }

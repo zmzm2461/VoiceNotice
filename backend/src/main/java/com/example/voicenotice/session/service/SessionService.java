@@ -9,6 +9,7 @@ import com.example.voicenotice.notification.entity.PushToken;
 import com.example.voicenotice.notification.repository.PushTokenRepository;
 import com.example.voicenotice.notification.service.PushNotificationService;
 import com.example.voicenotice.device.service.DeviceCommandService;
+import com.example.voicenotice.quickreply.repository.QuickReplyUsageRepository;
 import com.example.voicenotice.session.entity.IntercomSession;
 import com.example.voicenotice.session.entity.SessionStatus;
 import com.example.voicenotice.session.repository.IntercomSessionRepository;
@@ -20,6 +21,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.voicenotice.quickreply.entity.QuickReplyUsage;
 
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +30,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class SessionService {
     private final IntercomSessionRepository sessionRepository;
+    private final QuickReplyUsageRepository quickReplyUsageRepository;
     private final DeviceService deviceService;
     private final PushNotificationService pushNotificationService;
     private final PushTokenRepository pushTokenRepository;
@@ -137,6 +140,15 @@ public class SessionService {
 
         QuickReply quickReply =
                 quickReplyService.getByReplyCode(replyCode);
+
+        quickReplyUsageRepository.save(
+                new QuickReplyUsage(
+                        quickReply.getReplyCode(),
+                        quickReply.getText(),
+                        sessionId,
+                        userId
+                )
+        );
 
         deviceCommandService.createPlayReplyCommand(
                 session.getDevice(),

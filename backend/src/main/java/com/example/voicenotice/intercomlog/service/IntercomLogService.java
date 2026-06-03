@@ -148,6 +148,16 @@ public class IntercomLogService {
                 .toList();
     }
 
+    @Transactional
+    public void deleteMyLog(Long userId, Long logId) {
+        List<Long> deviceIds = getMyDeviceIds(userId);
+
+        IntercomLog log = intercomLogRepository.findByIdAndDevice_IdIn(logId, deviceIds)
+                .orElseThrow(() -> new NotFoundException("삭제할 인터폰 기록이 없습니다."));
+
+        intercomLogRepository.delete(log);
+    }
+
     private String classifyIntent(String text) {
         if (text == null) {
             return "UNKNOWN";
