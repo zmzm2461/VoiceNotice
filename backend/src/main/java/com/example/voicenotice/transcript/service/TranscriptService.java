@@ -4,6 +4,7 @@ import com.example.voicenotice.common.exception.NotFoundException;
 import com.example.voicenotice.session.entity.IntercomSession;
 import com.example.voicenotice.session.service.SessionService;
 import com.example.voicenotice.stt.service.SttOrchestrationService;
+import com.example.voicenotice.transcript.dto.FinalizeResult;
 import com.example.voicenotice.transcript.dto.TranscriptResponse;
 import com.example.voicenotice.transcript.entity.FinalTranscript;
 import com.example.voicenotice.transcript.entity.TranscriptChunk;
@@ -80,5 +81,11 @@ public class TranscriptService {
                 .finalText(finalText)
                 .status(status)
                 .build();
+    }
+
+    @Transactional
+    public FinalizeResult finalizeSessionWithLog(Long sessionId) {
+        IntercomSession session = sessionService.close(sessionId);
+        return sttOrchestrationService.finalizeSessionWithLog(session);
     }
 }

@@ -2,11 +2,13 @@ package com.example.voicenotice.stt.service;
 
 import com.example.voicenotice.audio.entity.AudioChunk;
 import com.example.voicenotice.audio.repository.AudioChunkRepository;
+import com.example.voicenotice.intercomlog.entity.IntercomLog;
 import com.example.voicenotice.intercomlog.service.IntercomLogService;
 import com.example.voicenotice.session.entity.IntercomSession;
 import com.example.voicenotice.stt.client.SttClient;
 import com.example.voicenotice.stt.client.TextRefinerClient;
 import com.example.voicenotice.stt.dto.TranscriptMessage;
+import com.example.voicenotice.transcript.dto.FinalizeResult;
 import com.example.voicenotice.transcript.entity.FinalTranscript;
 import com.example.voicenotice.transcript.entity.TranscriptChunk;
 import com.example.voicenotice.transcript.repository.FinalTranscriptRepository;
@@ -141,6 +143,18 @@ public class SttOrchestrationService {
     @Transactional(readOnly = true)
     public List<AudioChunk> getAudioChunks(Long sessionId) {
         return audioChunkRepository.findBySession_IdOrderByChunkOrderAsc(sessionId);
+    }
+
+    @Transactional
+    public FinalizeResult finalizeSessionWithLog(IntercomSession session) {
+        FinalTranscript finalTranscript = finalizeSession(session);
+
+        IntercomLog log = intercomLogService.createIfNotExists(finalTranscript);
+
+        return new FinalizeResult(
+                finalTranscript,
+                log.getId()
+        );
     }
 
 }

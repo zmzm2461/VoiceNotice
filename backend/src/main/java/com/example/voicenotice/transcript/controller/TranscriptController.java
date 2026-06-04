@@ -2,6 +2,7 @@ package com.example.voicenotice.transcript.controller;
 
 import com.example.voicenotice.common.response.ApiResponse;
 import com.example.voicenotice.transcript.dto.TranscriptResponse;
+import com.example.voicenotice.transcript.dto.FinalizeResult;
 import com.example.voicenotice.transcript.entity.FinalTranscript;
 import com.example.voicenotice.transcript.entity.TranscriptChunk;
 import com.example.voicenotice.transcript.service.TranscriptService;
@@ -20,23 +21,44 @@ public class TranscriptController {
     }
 
     public record PartialResponse(Integer chunkOrder, String text) {}
-    public record TranscriptListResponse(Long sessionId, String status, List<PartialResponse> partials, String finalText) {}
-    public record FinalTranscriptResponse(Long sessionId, String mergedText, String refinedText, String status) {}
+
+    public record TranscriptListResponse(
+            Long sessionId,
+            String status,
+            List<PartialResponse> partials,
+            String finalText
+    ) {}
+
+    public record FinalTranscriptResponse(
+            Long sessionId,
+            Long logId,
+            String mergedText,
+            String refinedText,
+            String status
+    ) {}
 
     @GetMapping("/{sessionId}/transcripts")
     public ResponseEntity<ApiResponse<TranscriptListResponse>> getPartials(@PathVariable Long sessionId) {
         List<TranscriptChunk> chunks = transcriptService.getChunks(sessionId);
+
         List<PartialResponse> partials = chunks.stream()
                 .map(chunk -> new PartialResponse(chunk.getChunkOrder(), chunk.getRawText()))
                 .toList();
-        return ResponseEntity.ok(ApiResponse.ok(new TranscriptListResponse(sessionId, "OPEN", partials, null)));
+
+        return ResponseEntity.ok(
+                ApiResponse.ok(new TranscriptListResponse(sessionId, "OPEN", partials, null))
+        );
     }
 
     @PostMapping("/{sessionId}/finalize")
     public ResponseEntity<ApiResponse<FinalTranscriptResponse>> finalizeSession(@PathVariable Long sessionId) {
-        FinalTranscript finalTranscript = transcriptService.finalizeSession(sessionId);
+        FinalizeResult result = transcriptService.finalizeSessionWithLog(sessionId);
+
+        FinalTranscript finalTranscript = result.finalTranscript();
+
         return ResponseEntity.ok(ApiResponse.ok(new FinalTranscriptResponse(
                 sessionId,
+                result.logId(),
                 finalTranscript.getMergedText(),
                 finalTranscript.getRefinedText(),
                 finalTranscript.getStatus().name()
@@ -46,8 +68,10 @@ public class TranscriptController {
     @GetMapping("/{sessionId}/final")
     public ResponseEntity<ApiResponse<FinalTranscriptResponse>> getFinal(@PathVariable Long sessionId) {
         FinalTranscript finalTranscript = transcriptService.getFinal(sessionId);
+
         return ResponseEntity.ok(ApiResponse.ok(new FinalTranscriptResponse(
                 sessionId,
+                null,
                 finalTranscript.getMergedText(),
                 finalTranscript.getRefinedText(),
                 finalTranscript.getStatus().name()
@@ -56,9 +80,7 @@ public class TranscriptController {
 
     @GetMapping("/{sessionId}/stream")
     public ResponseEntity<ApiResponse<TranscriptResponse>> getStream(@PathVariable Long sessionId) {
-
         TranscriptResponse response = transcriptService.getTranscript(sessionId);
-
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 }
