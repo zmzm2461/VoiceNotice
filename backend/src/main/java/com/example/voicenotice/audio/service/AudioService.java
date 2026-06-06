@@ -6,10 +6,11 @@ import com.example.voicenotice.audio.repository.AudioChunkRepository;
 import com.example.voicenotice.session.entity.IntercomSession;
 import com.example.voicenotice.session.service.SessionService;
 import com.example.voicenotice.stt.service.SttOrchestrationService;
-import com.example.voicenotice.transcript.entity.TranscriptChunk;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -75,9 +76,16 @@ public class AudioService {
 
         AudioChunk savedChunk = audioChunkRepository.save(audioChunk);
 
-        sttOrchestrationService.transcribeChunkAsync(
-                savedChunk.getId(),
-                isLast
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        sttOrchestrationService.transcribeChunkAsync(
+                                savedChunk.getId(),
+                                isLast
+                        );
+                    }
+                }
         );
 
         return new ChunkUploadResponse(
