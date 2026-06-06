@@ -1,7 +1,6 @@
 package com.example.voicenotice.intercomlog.service;
 
 import com.example.voicenotice.common.exception.NotFoundException;
-import com.example.voicenotice.device.entity.DevicePairing;
 import com.example.voicenotice.device.repository.DevicePairingRepository;
 import com.example.voicenotice.intercomlog.dto.IntercomLogResponse;
 import com.example.voicenotice.intercomlog.entity.IntercomLog;
@@ -44,7 +43,7 @@ public class IntercomLogService {
                             finalText,
                             summary,
                             intent,
-                            finalTranscript.getStatus().name()
+                            finalTranscript.getSession().getStatus().name()
                     );
 
                     IntercomLog saved = intercomLogRepository.save(log);
@@ -72,17 +71,6 @@ public class IntercomLogService {
                 .orElseThrow(() -> new RuntimeException("인터폰 대화 기록 없음"));
 
         return IntercomLogResponse.from(log);
-    }
-
-    private String summarizeSafely(String text) {
-        try {
-            return textRefinerClient.summarize(text);
-        } catch (Exception e) {
-            if (text == null || text.isBlank()) {
-                return "내용 없음";
-            }
-            return text.length() > 30 ? text.substring(0, 30) + "..." : text;
-        }
     }
 
     @Transactional(readOnly = true)
@@ -141,13 +129,6 @@ public class IntercomLogService {
         return IntercomLogResponse.from(log);
     }
 
-    private List<Long> getMyDeviceIds(Long userId) {
-        return devicePairingRepository.findByUser_IdAndUnpairedAtIsNull(userId)
-                .stream()
-                .map(pairing -> pairing.getDevice().getId())
-                .toList();
-    }
-
     @Transactional
     public void deleteMyLog(Long userId, Long logId) {
         List<Long> deviceIds = getMyDeviceIds(userId);
@@ -156,6 +137,24 @@ public class IntercomLogService {
                 .orElseThrow(() -> new NotFoundException("삭제할 인터폰 기록이 없습니다."));
 
         intercomLogRepository.delete(log);
+    }
+
+    private List<Long> getMyDeviceIds(Long userId) {
+        return devicePairingRepository.findByUser_IdAndUnpairedAtIsNull(userId)
+                .stream()
+                .map(pairing -> pairing.getDevice().getId())
+                .toList();
+    }
+
+    private String summarizeSafely(String text) {
+        try {
+            return textRefinerClient.summarize(text);
+        } catch (Exception e) {
+            if (text == null || text.isBlank()) {
+                return "내용 없음";
+            }
+            return text.length() > 30 ? text.substring(0, 30) + "..." : text;
+        }
     }
 
     private String classifyIntent(String text) {

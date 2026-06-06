@@ -12,6 +12,7 @@ public class IntercomLogResponse {
 
     private Long id;
     private Long sessionId;
+    private String deviceUid;
     private String visitorText;
     private String summary;
     private String intent;
@@ -22,6 +23,7 @@ public class IntercomLogResponse {
         return IntercomLogResponse.builder()
                 .id(log.getId())
                 .sessionId(log.getSessionId())
+                .deviceUid(log.getDevice().getDeviceUid())
                 .visitorText(log.getVisitorText())
                 .summary(log.getSummary())
                 .intent(log.getIntent())

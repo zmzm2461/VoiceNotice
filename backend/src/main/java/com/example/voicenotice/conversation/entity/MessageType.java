@@ -1,4 +1,8 @@
 package com.example.voicenotice.conversation.entity;
 
-public class MessageType {
+public enum MessageType {
+    STT,
+    QUICK_REPLY,
+    TEXT,
+    CORRECTION
 }

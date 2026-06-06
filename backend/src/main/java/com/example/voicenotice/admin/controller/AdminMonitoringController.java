@@ -1,5 +1,6 @@
 package com.example.voicenotice.admin.controller;
 
+import com.example.voicenotice.admin.dto.AdminMonitoringDetailResponse;
 import com.example.voicenotice.admin.dto.AdminMonitoringResponse;
 import com.example.voicenotice.admin.service.AdminMonitoringService;
 import com.example.voicenotice.common.response.ApiResponse;
@@ -18,5 +19,12 @@ public class AdminMonitoringController {
     @GetMapping
     public ApiResponse<List<AdminMonitoringResponse>> getActiveSessions() {
         return ApiResponse.ok(adminMonitoringService.getActiveSessions());
+    }
+
+    @GetMapping("/{sessionId}")
+    public ApiResponse<AdminMonitoringDetailResponse> getSessionDetail(
+            @PathVariable Long sessionId
+    ) {
+        return ApiResponse.ok(adminMonitoringService.getSessionDetail(sessionId));
     }
 }

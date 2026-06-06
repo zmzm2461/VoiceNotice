@@ -2,6 +2,7 @@ package com.example.voicenotice.stt.service;
 
 import com.example.voicenotice.audio.entity.AudioChunk;
 import com.example.voicenotice.audio.repository.AudioChunkRepository;
+import com.example.voicenotice.conversation.service.ConversationMessageService;
 import com.example.voicenotice.intercomlog.entity.IntercomLog;
 import com.example.voicenotice.intercomlog.service.IntercomLogService;
 import com.example.voicenotice.session.entity.IntercomSession;
@@ -26,12 +27,12 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Collectors;
 
-
 @Service
 @Getter
 @Setter
 @RequiredArgsConstructor
 public class SttOrchestrationService {
+
     private final SttClient sttClient;
     private final TextRefinerClient textRefinerClient;
     private final TranscriptChunkRepository transcriptChunkRepository;
@@ -39,21 +40,37 @@ public class SttOrchestrationService {
     private final AudioChunkRepository audioChunkRepository;
     private final IntercomLogService intercomLogService;
     private final SimpMessagingTemplate messagingTemplate;
-
+    private final ConversationMessageService conversationMessageService;
 
     @Async("sttTaskExecutor")
     @Transactional
     public void transcribeChunkAsync(Long audioChunkId, boolean isLast) {
-        AudioChunk audioChunk = audioChunkRepository.findById(audioChunkId)
-                .orElseThrow(() -> new IllegalArgumentException("AudioChunk not found: " + audioChunkId));
+        try {
+            System.out.println("[STT 시작] audioChunkId=" + audioChunkId + ", isLast=" + isLast);
 
-        TranscriptChunk transcriptChunk = transcribeChunk(audioChunk);
+            AudioChunk audioChunk = audioChunkRepository.findById(audioChunkId)
+                    .orElseThrow(() -> new IllegalArgumentException("AudioChunk not found: " + audioChunkId));
 
-        if (isLast) {
-            finalizeSession(audioChunk.getSession());
+            System.out.println("[STT 파일] sessionId=" + audioChunk.getSession().getId()
+                    + ", chunkOrder=" + audioChunk.getChunkOrder()
+                    + ", filePath=" + audioChunk.getFilePath());
+
+            TranscriptChunk transcriptChunk = transcribeChunk(audioChunk);
+
+            System.out.println("[STT 완료] sessionId=" + audioChunk.getSession().getId()
+                    + ", chunkOrder=" + audioChunk.getChunkOrder()
+                    + ", text=" + transcriptChunk.getRawText());
+
+            if (isLast) {
+                System.out.println("[세션 최종 처리 시작] sessionId=" + audioChunk.getSession().getId());
+                finalizeSession(audioChunk.getSession());
+            }
+
+        } catch (Exception e) {
+            System.out.println("[STT 실패] audioChunkId=" + audioChunkId);
+            e.printStackTrace();
         }
     }
-
 
     @Transactional
     public TranscriptChunk transcribeChunk(AudioChunk audioChunk) {
@@ -67,7 +84,13 @@ public class SttOrchestrationService {
                     result.text(),
                     result.confidence()
             );
+
             TranscriptChunk saved = transcriptChunkRepository.save(transcriptChunk);
+
+            conversationMessageService.saveVisitorSttMessage(
+                    audioChunk.getSession(),
+                    saved.getRawText()
+            );
 
             System.out.println("WebSocket 전송 성공: " + saved.getRawText());
 
@@ -111,7 +134,8 @@ public class SttOrchestrationService {
 
     @Transactional
     public FinalTranscript finalizeSession(IntercomSession session) {
-        List<TranscriptChunk> chunks = transcriptChunkRepository.findBySession_IdOrderByChunkOrderAsc(session.getId());
+        List<TranscriptChunk> chunks =
+                transcriptChunkRepository.findBySession_IdOrderByChunkOrderAsc(session.getId());
 
         String mergedText = chunks.stream()
                 .map(TranscriptChunk::getRawText)
@@ -135,6 +159,7 @@ public class SttOrchestrationService {
 
             finalTranscript.succeed(mergedText);
         }
+
         intercomLogService.createIfNotExists(finalTranscript);
 
         return finalTranscript;
@@ -156,5 +181,4 @@ public class SttOrchestrationService {
                 log.getId()
         );
     }
-
 }

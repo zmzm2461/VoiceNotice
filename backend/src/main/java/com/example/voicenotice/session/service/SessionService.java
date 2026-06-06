@@ -1,6 +1,7 @@
 package com.example.voicenotice.session.service;
 
 import com.example.voicenotice.common.exception.NotFoundException;
+import com.example.voicenotice.conversation.service.ConversationMessageService;
 import com.example.voicenotice.device.entity.Device;
 import com.example.voicenotice.device.entity.DevicePairing;
 import com.example.voicenotice.device.repository.DevicePairingRepository;
@@ -38,6 +39,7 @@ public class SessionService {
     private final SimpMessagingTemplate messagingTemplate;
     private final QuickReplyService quickReplyService;
     private final DeviceCommandService deviceCommandService;
+    private final ConversationMessageService conversationMessageService;
 
 
     @Transactional
@@ -150,6 +152,11 @@ public class SessionService {
                 )
         );
 
+        conversationMessageService.saveUserQuickReplyMessage(
+                session,
+                quickReply.getText()
+        );
+
         deviceCommandService.createPlayReplyCommand(
                 session.getDevice(),
                 replyCode
@@ -163,6 +170,18 @@ public class SessionService {
                         quickReply.getText()
                 )
         );
+    }
+
+    @Transactional(readOnly = true)
+    public void validateUserSessionAccess(Long userId, Long sessionId) {
+        IntercomSession session = getOrThrow(sessionId);
+
+        devicePairingRepository
+                .findByDevice_DeviceUidAndUser_IdAndUnpairedAtIsNull(
+                        session.getDevice().getDeviceUid(),
+                        userId
+                )
+                .orElseThrow(() -> new IllegalArgumentException("해당 세션에 대한 권한이 없습니다."));
     }
 
 }
