@@ -63,4 +63,8 @@ public class IntercomLog {
         this.status = status;
         this.createdAt = LocalDateTime.now();
     }
+
+    public void updateStatus(String status) {
+        this.status = status;
+    }
 }

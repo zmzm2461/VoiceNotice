@@ -25,7 +25,13 @@ public class IntercomLogService {
 
     @Transactional
     public IntercomLog createIfNotExists(FinalTranscript finalTranscript) {
+        String currentSessionStatus = finalTranscript.getSession().getStatus().name();
+
         return intercomLogRepository.findByFinalTranscript_Id(finalTranscript.getId())
+                .map(existingLog -> {
+                    existingLog.updateStatus(currentSessionStatus);
+                    return existingLog;
+                })
                 .orElseGet(() -> {
                     String finalText = finalTranscript.getRefinedText();
 
@@ -43,7 +49,7 @@ public class IntercomLogService {
                             finalText,
                             summary,
                             intent,
-                            finalTranscript.getSession().getStatus().name()
+                            currentSessionStatus
                     );
 
                     IntercomLog saved = intercomLogRepository.save(log);

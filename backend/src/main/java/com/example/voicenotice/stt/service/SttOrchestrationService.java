@@ -57,6 +57,22 @@ public class SttOrchestrationService {
 
             TranscriptChunk transcriptChunk = transcribeChunk(audioChunk);
 
+            if (transcriptChunk == null ||
+                    transcriptChunk.getRawText() == null ||
+                    transcriptChunk.getRawText().isBlank()) {
+
+                System.out.println("[STT 빈 결과 스킵] sessionId="
+                        + audioChunk.getSession().getId()
+                        + ", chunkOrder=" + audioChunk.getChunkOrder());
+
+                if (isLast) {
+                    System.out.println("[세션 최종 처리 시작] sessionId=" + audioChunk.getSession().getId());
+                    finalizeSession(audioChunk.getSession());
+                }
+
+                return;
+            }
+
             System.out.println("[STT 완료] sessionId=" + audioChunk.getSession().getId()
                     + ", chunkOrder=" + audioChunk.getChunkOrder()
                     + ", text=" + transcriptChunk.getRawText());
@@ -77,6 +93,13 @@ public class SttOrchestrationService {
         try {
             byte[] audioBytes = Files.readAllBytes(Path.of(audioChunk.getFilePath()));
             SttClient.SttResult result = sttClient.stt(audioBytes, audioChunk.getFileName());
+
+            if (result.text() == null || result.text().isBlank()) {
+                System.out.println("[STT 결과 없음 - 저장/전송 생략] sessionId="
+                        + audioChunk.getSession().getId()
+                        + ", chunkOrder=" + audioChunk.getChunkOrder());
+                return null;
+            }
 
             TranscriptChunk transcriptChunk = new TranscriptChunk(
                     audioChunk.getSession(),

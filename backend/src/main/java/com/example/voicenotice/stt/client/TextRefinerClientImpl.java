@@ -5,6 +5,7 @@ import com.example.voicenotice.stt.dto.RefineResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.Map;
 
@@ -14,7 +15,8 @@ public class TextRefinerClientImpl implements TextRefinerClient {
 
     private final RestTemplate restTemplate;
 
-    private final String aiServerUrl = "http://localhost:8000";
+    @Value("${ai.base-url}")
+    private String aiServerUrl;
 
     @Override
     public String refine(String text) {
@@ -26,7 +28,11 @@ public class TextRefinerClientImpl implements TextRefinerClient {
                 RefineResponse.class
         );
 
-        return response.refinedText();
+        if (response == null) {
+            return text;
+        }
+
+        return response.finalText();
     }
 
     @Override

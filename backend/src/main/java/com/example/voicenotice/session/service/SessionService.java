@@ -6,6 +6,7 @@ import com.example.voicenotice.device.entity.Device;
 import com.example.voicenotice.device.entity.DevicePairing;
 import com.example.voicenotice.device.repository.DevicePairingRepository;
 import com.example.voicenotice.device.service.DeviceService;
+import com.example.voicenotice.intercomlog.service.IntercomLogService;
 import com.example.voicenotice.notification.entity.PushToken;
 import com.example.voicenotice.notification.repository.PushTokenRepository;
 import com.example.voicenotice.notification.service.PushNotificationService;
@@ -18,6 +19,7 @@ import com.example.voicenotice.stt.dto.CallStatusMessage;
 import com.example.voicenotice.quickreply.entity.QuickReply;
 import com.example.voicenotice.quickreply.service.QuickReplyService;
 import com.example.voicenotice.stt.dto.ReplyMessage;
+import com.example.voicenotice.transcript.repository.FinalTranscriptRepository;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -40,6 +42,8 @@ public class SessionService {
     private final QuickReplyService quickReplyService;
     private final DeviceCommandService deviceCommandService;
     private final ConversationMessageService conversationMessageService;
+    private final FinalTranscriptRepository finalTranscriptRepository;
+    private final IntercomLogService intercomLogService;
 
 
     @Transactional
@@ -86,7 +90,15 @@ public class SessionService {
     @Transactional
     public IntercomSession close(Long sessionId) {
         IntercomSession session = getOrThrow(sessionId);
+
+        if (session.getStatus() == SessionStatus.CLOSED) {
+            return session;
+        }
+
         session.close();
+
+        finalTranscriptRepository.findBySession_Id(sessionId)
+                .ifPresent(intercomLogService::createIfNotExists);
 
         messagingTemplate.convertAndSend(
                 "/topic/sessions/" + session.getId() + "/status",
@@ -94,6 +106,15 @@ public class SessionService {
                         session.getId(),
                         "ENDED",
                         "통화가 종료되었습니다."
+                )
+        );
+
+        messagingTemplate.convertAndSend(
+                "/topic/admin/monitoring",
+                new CallStatusMessage(
+                        session.getId(),
+                        "ENDED",
+                        "관리자 모니터링에서 제거할 세션입니다."
                 )
         );
 
