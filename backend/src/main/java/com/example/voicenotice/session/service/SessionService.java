@@ -125,6 +125,10 @@ public class SessionService {
     public IntercomSession connect(Long sessionId) {
         IntercomSession session = getOrThrow(sessionId);
 
+        if (session.getStatus() == SessionStatus.CLOSED) {
+            throw new IllegalStateException("이미 종료된 채팅방입니다.");
+        }
+
         messagingTemplate.convertAndSend(
                 "/topic/sessions/" + session.getId() + "/status",
                 new CallStatusMessage(
