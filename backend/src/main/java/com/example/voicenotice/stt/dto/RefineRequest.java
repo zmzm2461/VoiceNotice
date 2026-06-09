@@ -1,3 +1,3 @@
 package com.example.voicenotice.stt.dto;
 
-public record RefineRequest(String text) {}
+public record RefineRequest(String rawText) {}
