@@ -6,6 +6,8 @@ import com.example.voicenotice.conversation.service.ConversationMessageService;
 import com.example.voicenotice.session.entity.IntercomSession;
 import com.example.voicenotice.session.service.SessionService;
 import com.example.voicenotice.session.dto.SessionReplyRequest;
+import com.example.voicenotice.transcript.dto.FinalizeResult;
+import com.example.voicenotice.transcript.service.TranscriptService;
 import org.springframework.http.ResponseEntity;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
@@ -19,13 +21,16 @@ public class SessionController {
 
     private final SessionService sessionService;
     private final ConversationMessageService conversationMessageService;
+    private final TranscriptService transcriptService;
 
     public SessionController(
             SessionService sessionService,
-            ConversationMessageService conversationMessageService
+            ConversationMessageService conversationMessageService,
+            TranscriptService transcriptService
     ) {
         this.sessionService = sessionService;
         this.conversationMessageService = conversationMessageService;
+        this.transcriptService = transcriptService;
     }
 
     public record StartSessionRequest(String deviceUid) {}
@@ -49,7 +54,10 @@ public class SessionController {
 
     @PostMapping("/end")
     public ResponseEntity<ApiResponse<EndSessionResponse>> end(@RequestBody EndSessionRequest request) {
-        IntercomSession session = sessionService.close(request.sessionId());
+        FinalizeResult result = transcriptService.finalizeSessionWithLog(request.sessionId());
+
+        IntercomSession session = result.finalTranscript().getSession();
+
         return ResponseEntity.ok(ApiResponse.ok(
                 new EndSessionResponse(
                         session.getId(),

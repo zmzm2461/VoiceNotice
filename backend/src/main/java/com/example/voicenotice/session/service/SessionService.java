@@ -5,26 +5,26 @@ import com.example.voicenotice.conversation.service.ConversationMessageService;
 import com.example.voicenotice.device.entity.Device;
 import com.example.voicenotice.device.entity.DevicePairing;
 import com.example.voicenotice.device.repository.DevicePairingRepository;
+import com.example.voicenotice.device.service.DeviceCommandService;
 import com.example.voicenotice.device.service.DeviceService;
 import com.example.voicenotice.intercomlog.service.IntercomLogService;
 import com.example.voicenotice.notification.entity.PushToken;
 import com.example.voicenotice.notification.repository.PushTokenRepository;
 import com.example.voicenotice.notification.service.PushNotificationService;
-import com.example.voicenotice.device.service.DeviceCommandService;
+import com.example.voicenotice.quickreply.entity.QuickReply;
+import com.example.voicenotice.quickreply.entity.QuickReplyUsage;
 import com.example.voicenotice.quickreply.repository.QuickReplyUsageRepository;
+import com.example.voicenotice.quickreply.service.QuickReplyService;
 import com.example.voicenotice.session.entity.IntercomSession;
 import com.example.voicenotice.session.entity.SessionStatus;
 import com.example.voicenotice.session.repository.IntercomSessionRepository;
 import com.example.voicenotice.stt.dto.CallStatusMessage;
-import com.example.voicenotice.quickreply.entity.QuickReply;
-import com.example.voicenotice.quickreply.service.QuickReplyService;
 import com.example.voicenotice.stt.dto.ReplyMessage;
 import com.example.voicenotice.transcript.repository.FinalTranscriptRepository;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.example.voicenotice.quickreply.entity.QuickReplyUsage;
 
 import java.util.List;
 import java.util.Optional;
@@ -32,6 +32,7 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 public class SessionService {
+
     private final IntercomSessionRepository sessionRepository;
     private final QuickReplyUsageRepository quickReplyUsageRepository;
     private final DeviceService deviceService;
@@ -44,7 +45,6 @@ public class SessionService {
     private final ConversationMessageService conversationMessageService;
     private final FinalTranscriptRepository finalTranscriptRepository;
     private final IntercomLogService intercomLogService;
-
 
     @Transactional
     public IntercomSession start(String deviceUid) {
@@ -165,8 +165,7 @@ public class SessionService {
                 )
                 .orElseThrow(() -> new IllegalArgumentException("해당 기기에 대한 권한이 없습니다."));
 
-        QuickReply quickReply =
-                quickReplyService.getByReplyCode(replyCode);
+        QuickReply quickReply = quickReplyService.getByReplyCode(replyCode);
 
         quickReplyUsageRepository.save(
                 new QuickReplyUsage(
@@ -208,5 +207,4 @@ public class SessionService {
                 )
                 .orElseThrow(() -> new IllegalArgumentException("해당 세션에 대한 권한이 없습니다."));
     }
-
 }

@@ -237,9 +237,7 @@ public class SttOrchestrationService {
         finalTranscript.updateCategory(category);
         finalTranscript.succeed(mergedText);
 
-        intercomLogService.createIfNotExists(finalTranscript);
-
-        System.out.println("[세션 종료 로그 생성] sessionId="
+        System.out.println("[세션 종료 FinalTranscript 생성] sessionId="
                 + session.getId()
                 + ", mergedText=" + mergedText
                 + ", category=" + category);
