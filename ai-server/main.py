@@ -35,42 +35,86 @@ client = OpenAI(
 # ======================
 
 def apply_correction_dictionary(text: str) -> str:
-    """
-    STT가 자주 틀리는 인터폰 표현을 1차로 보정한다.
-    GPT가 과하게 추측하기 전에 확실한 오인식만 먼저 바꾼다.
-    """
-
     correction_map = {
+        # 택배/배송
         "특별 왔습니다": "택배 왔습니다",
         "특별왔습니다": "택배 왔습니다",
         "특별 왔어요": "택배 왔어요",
         "특별왔어요": "택배 왔어요",
+        "택패 왔습니다": "택배 왔습니다",
+        "택배 와 씁니다": "택배 왔습니다",
+        "택배왔 씁니다": "택배 왔습니다",
+        "택배 왔 씁니다": "택배 왔습니다",
+        "택배 기사입니다": "택배기사입니다",
 
+        # 배달
         "달 왔습니다": "배달 왔습니다",
         "달왔습니다": "배달 왔습니다",
         "달 왔어요": "배달 왔어요",
         "달왔어요": "배달 왔어요",
-
         "배달 와 씁니다": "배달 왔습니다",
         "배달왔 씁니다": "배달 왔습니다",
         "배달 왔 씁니다": "배달 왔습니다",
+        "음식 배달왔습니다": "음식 배달 왔습니다",
 
+        # 문 앞/배송 완료
+        "문압": "문 앞",
+        "문 압": "문 앞",
+        "문앞": "문 앞",
+        "문압에": "문 앞에",
+        "문 앞에 둘게여": "문 앞에 둘게요",
+        "문앞에 둘게여": "문 앞에 둘게요",
+        "문 앞에 두고 갈께요": "문 앞에 두고 갈게요",
+        "두고 갈께요": "두고 갈게요",
+        "놓고 갈께요": "놓고 갈게요",
+
+        # 관리사무소/경비실
         "관리 소입니다": "관리사무소입니다",
         "관리소입니다": "관리사무소입니다",
+        "관리 사무소입니다": "관리사무소입니다",
         "관리 소": "관리사무소",
-
+        "관리 실입니다": "관리실입니다",
+        "관리실 입니다": "관리실입니다",
         "경비 실입니다": "경비실입니다",
+        "경비실 입니다": "경비실입니다",
         "경비 실": "경비실",
 
+        # 점검
         "정검": "점검",
         "소방 정검": "소방 점검",
         "가스 정검": "가스 점검",
+        "시설 정검": "시설 점검",
+        "정기 정검": "정기 점검",
+        "점검 나왓습니다": "점검 나왔습니다",
+        "점검 나왔 습니다": "점검 나왔습니다",
 
-        "문압": "문 앞",
-        "문 압": "문 앞",
-        "문앞에 둘게여": "문 앞에 둘게요",
-        "문 앞에 둘게여": "문 앞에 둘게요",
-        "문 앞에 두고 갈께요": "문 앞에 두고 갈게요",
+        # 도시가스
+        "도시 까스": "도시가스",
+        "도시가 쓰": "도시가스",
+        "도시 가스": "도시가스",
+        "도시가스 정검": "도시가스 점검",
+
+        # 설치/수리 기사
+        "인터넷 설 치": "인터넷 설치",
+        "인터넷 설치기사": "인터넷 설치 기사",
+        "설치 기삽니다": "설치 기사입니다",
+        "수리 기삽니다": "수리 기사입니다",
+        "에컨": "에어컨",
+        "어컨": "에어컨",
+        "애어컨": "에어컨",
+        "에어 콘": "에어컨",
+        "에어컨 수리왔습니다": "에어컨 수리 왔습니다",
+        "에어컨 수리 왓습니다": "에어컨 수리 왔습니다",
+        "서비스 센터입니다": "서비스센터입니다",
+
+        # 누수/긴급
+        "누 수": "누수",
+        "아랫층": "아래층",
+        "아래 층": "아래층",
+        "물이 샙니다": "물이 새고 있습니다",
+        "물이 세고 있습니다": "물이 새고 있습니다",
+        "긴급이 확인": "긴급히 확인",
+        "긴급 히": "긴급히",
     }
 
     corrected = text
@@ -82,17 +126,17 @@ def apply_correction_dictionary(text: str) -> str:
 
 
 def guess_category(text: str) -> str:
-    """
-    GPT 실패 시 사용할 간단한 카테고리 분류.
-    """
-    if any(word in text for word in ["택배", "배달", "음식", "우편", "소포"]):
+    if any(word in text for word in ["화재", "응급", "위험", "긴급", "가스 냄새", "누수", "물이 새"]):
+        return "EMERGENCY"
+
+    if any(word in text for word in ["택배", "배달", "음식", "우편", "소포", "배송"]):
         return "DELIVERY"
 
-    if any(word in text for word in ["관리사무소", "관리실", "경비실", "점검", "소방", "가스"]):
+    if any(word in text for word in ["관리사무소", "관리실", "경비실", "점검", "소방", "가스", "안내"]):
         return "NOTICE"
 
-    if any(word in text for word in ["불", "화재", "응급", "위험", "긴급", "가스 냄새"]):
-        return "EMERGENCY"
+    if any(word in text for word in ["인터넷", "설치", "수리", "에어컨", "서비스센터", "기사"]):
+        return "VISITOR"
 
     if any(word in text for word in ["친구", "가족", "손님", "방문"]):
         return "VISITOR"
@@ -106,28 +150,45 @@ def make_simple_summary(text: str) -> str:
     if category == "DELIVERY":
         if "택배" in text:
             return "택배 도착"
-        if "배달" in text:
+        if "배달" in text or "음식" in text:
             return "배달 도착"
+        if "우편" in text:
+            return "우편물 도착"
         return "배송 도착"
 
     if category == "NOTICE":
+        if "소방" in text and "점검" in text:
+            return "소방 점검"
+        if "가스" in text and "점검" in text:
+            return "가스 점검"
         if "점검" in text:
             return "점검 방문"
-        return "관리 안내"
+        if "관리사무소" in text:
+            return "관리 안내"
+        return "공지 안내"
 
     if category == "EMERGENCY":
+        if "누수" in text or "물이 새" in text:
+            return "누수 확인"
+        if "화재" in text:
+            return "화재 상황"
+        if "가스 냄새" in text:
+            return "가스 위험"
         return "긴급 상황"
 
     if category == "VISITOR":
+        if "인터넷" in text and "설치" in text:
+            return "인터넷 설치"
+        if "에어컨" in text and "수리" in text:
+            return "에어컨 수리"
+        if "서비스센터" in text:
+            return "서비스 방문"
         return "방문자 도착"
 
     return text[:20] + ("..." if len(text) > 20 else "")
 
 
 def extract_json(text: str) -> dict:
-    """
-    GPT가 혹시 JSON 앞뒤에 불필요한 문장을 붙였을 때 대비.
-    """
     try:
         return json.loads(text)
     except json.JSONDecodeError:
@@ -203,7 +264,7 @@ async def stt(file: UploadFile = File(...)):
 
 class RefineRequest(BaseModel):
     rawText: str
-    style: Optional[str] = "apartment_notice"
+    style: Optional[str] = "apartment_intercom"
     maxLength: Optional[int] = 500
 
 
@@ -250,12 +311,30 @@ def refine(req: RefineRequest):
 5. 확실하지 않으면 억지로 바꾸지 않는다.
 6. 광고문이나 안내방송처럼 과하게 꾸미지 않는다.
 7. 짧은 문장은 짧게 유지한다.
+8. 다만 아파트 인터폰 환경에서 자주 나오는 표현과 발음상 매우 유사하면 자연스럽게 교정한다.
+9. 교정이 애매하면 confidence를 낮게 준다.
+
+인터폰 환경에서 자주 등장하는 표현 후보:
+- 택배 왔습니다
+- 배달 왔습니다
+- 음식 배달 왔습니다
+- 우편물 왔습니다
+- 문 앞에 두겠습니다
+- 관리사무소입니다
+- 경비실입니다
+- 소방 점검 나왔습니다
+- 도시가스 점검 나왔습니다
+- 인터넷 설치 기사입니다
+- 에어컨 수리 기사입니다
+- 서비스센터에서 왔습니다
+- 아래층 누수 확인이 필요합니다
+- 긴급히 확인할 사항이 있습니다
 
 카테고리:
 - DELIVERY: 택배, 배달, 음식 배달, 우편, 물품 전달
-- VISITOR: 지인, 가족, 손님, 방문자
+- VISITOR: 지인, 가족, 손님, 방문자, 설치 기사, 수리 기사, 서비스센터
 - NOTICE: 관리사무소, 경비실, 점검, 공지, 안내
-- EMERGENCY: 화재, 가스, 응급, 위험, 긴급 상황
+- EMERGENCY: 화재, 가스 냄새, 응급, 위험, 긴급, 누수
 - ETC: 위 항목에 명확히 해당하지 않는 경우
 
 출력 규칙:
@@ -291,6 +370,33 @@ def refine(req: RefineRequest):
   "finalText": "관리사무소입니다. 점검 때문에 방문했습니다.",
   "summary": "점검 방문",
   "category": "NOTICE",
+  "confidence": 0.9
+}}
+
+입력: 어켄 수왔습니다
+출력:
+{{
+  "finalText": "에어컨 수리 왔습니다.",
+  "summary": "에어컨 수리",
+  "category": "VISITOR",
+  "confidence": 0.75
+}}
+
+입력: 도시 까스 정검 나왔습니다
+출력:
+{{
+  "finalText": "도시가스 점검 나왔습니다.",
+  "summary": "가스 점검",
+  "category": "NOTICE",
+  "confidence": 0.85
+}}
+
+입력: 아랫층 누 수 때문에 왔습니다
+출력:
+{{
+  "finalText": "아래층 누수 때문에 왔습니다.",
+  "summary": "누수 확인",
+  "category": "EMERGENCY",
   "confidence": 0.9
 }}
 
