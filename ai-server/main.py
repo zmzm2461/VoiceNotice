@@ -125,6 +125,44 @@ def apply_correction_dictionary(text: str) -> str:
     return corrected
 
 
+def remove_stutter_noise(text: str) -> str:
+    """
+    STT가 만든 의미 없는 반복 발화 제거.
+    예:
+    자. 자. 자. 자.
+    어. 어. 어.
+    음. 음. 음.
+    아아아아
+    """
+
+    # 자. 자. 자.
+    text = re.sub(r"(자[\.\s]*){2,}", "", text)
+
+    # 어. 어. 어.
+    text = re.sub(r"(어[\.\s]*){2,}", "", text)
+
+    # 음. 음. 음.
+    text = re.sub(r"(음[\.\s]*){2,}", "", text)
+
+    # 아. 아. 아.
+    text = re.sub(r"(아[\.\s]*){2,}", "", text)
+
+    # 네. 네. 네.
+    text = re.sub(r"(네[\.\s]*){2,}", "네", text)
+
+    # 예. 예. 예.
+    text = re.sub(r"(예[\.\s]*){2,}", "예", text)
+
+    # 같은 한글 글자가 4번 이상 반복될 때 줄임
+    # 예: 자자자자자 -> 자
+    text = re.sub(r"([가-힣])\1{3,}", r"\1", text)
+
+    # 공백 정리
+    text = " ".join(text.split())
+
+    return text.strip()
+
+
 def guess_category(text: str) -> str:
     if any(word in text for word in ["화재", "응급", "위험", "긴급", "가스 냄새", "누수", "물이 새"]):
         return "EMERGENCY"
@@ -283,6 +321,7 @@ def health():
 @app.post("/refine", response_model=RefineResponse)
 def refine(req: RefineRequest):
     raw_text = " ".join(req.rawText.strip().split())
+    raw_text = remove_stutter_noise(raw_text)
 
     if not raw_text:
         return RefineResponse(
@@ -293,6 +332,15 @@ def refine(req: RefineRequest):
         )
 
     corrected_text = apply_correction_dictionary(raw_text)
+    corrected_text = remove_stutter_noise(corrected_text)
+
+    if not corrected_text:
+        return RefineResponse(
+            finalText="내용 없음",
+            summary="내용 없음",
+            category="ETC",
+            confidence=0.0
+        )
 
     if req.maxLength and len(corrected_text) > req.maxLength:
         corrected_text = corrected_text[:req.maxLength] + "..."
@@ -300,7 +348,7 @@ def refine(req: RefineRequest):
     prompt = f"""
 너는 아파트 인터폰 STT 문장을 자연스럽게 다듬는 후처리 AI다.
 
-이미 1차 오인식 교정은 완료되었다.
+이미 1차 오인식 교정과 의미 없는 반복 발화 제거는 완료되었다.
 너는 아래 문장을 과하게 바꾸지 말고, 사용자가 읽기 좋게만 정리한다.
 
 중요 규칙:
@@ -313,6 +361,7 @@ def refine(req: RefineRequest):
 7. 짧은 문장은 짧게 유지한다.
 8. 다만 아파트 인터폰 환경에서 자주 나오는 표현과 발음상 매우 유사하면 자연스럽게 교정한다.
 9. 교정이 애매하면 confidence를 낮게 준다.
+10. 의미 없는 반복 발화(자 자 자, 어 어 어, 음 음 음)는 제거한다.
 
 인터폰 환경에서 자주 등장하는 표현 후보:
 - 택배 왔습니다
@@ -353,6 +402,15 @@ def refine(req: RefineRequest):
   "summary": "택배 도착",
   "category": "DELIVERY",
   "confidence": 0.95
+}}
+
+입력: 자. 자. 자. 자. 택배 왔습니다
+출력:
+{{
+  "finalText": "택배 왔습니다.",
+  "summary": "택배 도착",
+  "category": "DELIVERY",
+  "confidence": 0.9
 }}
 
 입력: 배달 왔습니다
@@ -425,6 +483,14 @@ def refine(req: RefineRequest):
         category = result.get("category") or guess_category(final_text)
         confidence = float(result.get("confidence", 0.8))
 
+        final_text = remove_stutter_noise(final_text)
+
+        if not final_text:
+            final_text = "내용 없음"
+            summary = "내용 없음"
+            category = "ETC"
+            confidence = 0.0
+
         return RefineResponse(
             finalText=final_text,
             summary=summary,
@@ -435,10 +501,20 @@ def refine(req: RefineRequest):
     except Exception as e:
         print("GPT refine error:", str(e))
 
+        fallback_text = remove_stutter_noise(corrected_text)
+
+        if not fallback_text:
+            return RefineResponse(
+                finalText="내용 없음",
+                summary="내용 없음",
+                category="ETC",
+                confidence=0.0
+            )
+
         return RefineResponse(
-            finalText=corrected_text,
-            summary=make_simple_summary(corrected_text),
-            category=guess_category(corrected_text),
+            finalText=fallback_text,
+            summary=make_simple_summary(fallback_text),
+            category=guess_category(fallback_text),
             confidence=0.6
         )
 
@@ -458,6 +534,7 @@ class SummaryResponse(BaseModel):
 @app.post("/summarize", response_model=SummaryResponse)
 def summarize(req: SummaryRequest):
     text = " ".join(req.text.strip().split())
+    text = remove_stutter_noise(text)
 
     if not text:
         return SummaryResponse(
@@ -465,6 +542,12 @@ def summarize(req: SummaryRequest):
         )
 
     corrected_text = apply_correction_dictionary(text)
+    corrected_text = remove_stutter_noise(corrected_text)
+
+    if not corrected_text:
+        return SummaryResponse(
+            summary="내용 없음"
+        )
 
     return SummaryResponse(
         summary=make_simple_summary(corrected_text)
