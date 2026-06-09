@@ -5,6 +5,7 @@ import com.example.voicenotice.admin.service.AdminQuickReplyService;
 import com.example.voicenotice.common.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import java.time.LocalDate;
 
 import java.util.List;
 
@@ -16,7 +17,9 @@ public class AdminQuickReplyController {
     private final AdminQuickReplyService adminQuickReplyService;
 
     @GetMapping("/statistics")
-    public ApiResponse<List<QuickReplyStatisticsResponse>> getStatistics() {
-        return ApiResponse.ok(adminQuickReplyService.getStatistics());
+    public ApiResponse<List<QuickReplyStatisticsResponse>> getStatistics(
+            @RequestParam(required = false) LocalDate date
+    ) {
+        return ApiResponse.ok(adminQuickReplyService.getStatistics(date));
     }
 }
