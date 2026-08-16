@@ -1,10 +1,13 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from typing import Optional
 import tempfile
 import os
 import json
 import re
+import asyncio
+import base64
+import websockets
 
 from faster_whisper import WhisperModel
 from openai import OpenAI
@@ -28,6 +31,70 @@ model = WhisperModel(
 client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
 )
+
+# ======================
+# OpenAI Realtime STT 설정
+# ======================
+
+OPENAI_REALTIME_URL = (
+    "wss://api.openai.com/v1/realtime"
+    "?model=gpt-live-transcribe"
+)
+
+REALTIME_STT_SESSION_CONFIG = {
+    "type": "session.update",
+    "session": {
+        "type": "transcription",
+        "audio": {
+            "input": {
+                "format": {
+                    "type": "audio/pcm",
+                    "rate": 24000
+                },
+                "transcription": {
+                    "model": "gpt-live-transcribe",
+
+                    # 어떤 환경의 음성인지 알려줌
+                    "prompt": (
+                        "아파트 인터폰에서 방문자가 말하는 한국어 음성입니다. "
+                        "택배, 배달, 관리사무소, 경비실, 점검, "
+                        "설치 기사, 수리 기사 등의 표현이 자주 등장합니다."
+                    ),
+
+                    # 자주 등장하는 중요 단어
+                    "keywords": [
+                        "택배",
+                        "배달",
+                        "문 앞",
+                        "관리사무소",
+                        "관리실",
+                        "경비실",
+                        "소방 점검",
+                        "도시가스",
+                        "도시가스 점검",
+                        "인터넷 설치",
+                        "설치 기사",
+                        "에어컨",
+                        "에어컨 수리",
+                        "서비스센터",
+                        "누수",
+                        "아래층"
+                    ],
+
+                    # 한국어
+                    "languages": ["ko"],
+
+                    # 속도 우선
+                    "delay": "low"
+                },
+
+                # 우선 1단계에서는 자동 발화 종료 감지 사용 X
+                # 아두이노가 나중에 직접 commit을 보내도록 한다.
+                "turn_detection": None
+            }
+        }
+    }
+}
 
 
 # ======================
@@ -235,6 +302,304 @@ def extract_json(text: str) -> dict:
             return json.loads(match.group())
         raise
 
+
+# ======================
+# Realtime STT 관련
+# ======================
+
+@app.websocket("/ws/stt")
+async def realtime_stt(websocket: WebSocket):
+
+    # 1. 우리 서버에 들어온 WebSocket 연결 수락
+    await websocket.accept()
+
+    print("[Realtime STT] Client connected")
+
+    api_key = os.getenv("OPENAI_API_KEY")
+
+    if not api_key:
+        await websocket.send_json({
+            "type": "error",
+            "message": "OPENAI_API_KEY가 설정되어 있지 않습니다."
+        })
+
+        await websocket.close(code=1011)
+        return
+
+    try:
+
+        # 2. Python 서버 -> OpenAI Realtime WebSocket 연결
+        async with websockets.connect(
+            OPENAI_REALTIME_URL,
+            additional_headers={
+                "Authorization": f"Bearer {api_key}"
+            }
+        ) as openai_ws:
+
+            print("[Realtime STT] OpenAI connected")
+
+            # 3. STT 세션 설정 전달
+            await openai_ws.send(
+                json.dumps(
+                    REALTIME_STT_SESSION_CONFIG,
+                    ensure_ascii=False
+                )
+            )
+
+            print("[Realtime STT] Session configuration sent")
+
+            # -------------------------------------
+            # 클라이언트 -> OpenAI
+            # -------------------------------------
+
+            async def client_to_openai():
+
+                try:
+                    while True:
+
+                        message = await websocket.receive()
+
+                        # WebSocket 연결 종료
+                        if message["type"] == "websocket.disconnect":
+                            print("[Realtime STT] Client disconnected")
+                            return
+
+                        # =========================
+                        # PCM 오디오를 받은 경우
+                        # =========================
+
+                        audio_bytes = message.get("bytes")
+
+                        if audio_bytes:
+
+                            # OpenAI에는 Base64로 보내야 함
+                            audio_base64 = base64.b64encode(
+                                audio_bytes
+                            ).decode("ascii")
+
+                            event = {
+                                "type": "input_audio_buffer.append",
+                                "audio": audio_base64
+                            }
+
+                            await openai_ws.send(
+                                json.dumps(event)
+                            )
+
+                        # =========================
+                        # 제어 메시지를 받은 경우
+                        # =========================
+
+                        text_message = message.get("text")
+
+                        if text_message:
+
+                            try:
+                                command = json.loads(text_message)
+
+                            except json.JSONDecodeError:
+                                print(
+                                    "[Realtime STT] "
+                                    "Invalid control message:",
+                                    text_message
+                                )
+                                continue
+
+                            command_type = command.get("type")
+
+                            # 발화가 끝났다는 의미
+                            if command_type == "commit":
+
+                                print(
+                                    "[Realtime STT] "
+                                    "Commit requested"
+                                )
+
+                                await openai_ws.send(
+                                    json.dumps({
+                                        "type":
+                                            "input_audio_buffer.commit"
+                                    })
+                                )
+
+                            # 현재 오디오 버퍼 삭제
+                            elif command_type == "clear":
+
+                                await openai_ws.send(
+                                    json.dumps({
+                                        "type":
+                                            "input_audio_buffer.clear"
+                                    })
+                                )
+
+                except WebSocketDisconnect:
+                    print(
+                        "[Realtime STT] "
+                        "Client WebSocket disconnected"
+                    )
+
+
+            # -------------------------------------
+            # OpenAI -> 클라이언트
+            # -------------------------------------
+
+            async def openai_to_client():
+
+                async for raw_message in openai_ws:
+
+                    event = json.loads(raw_message)
+
+                    event_type = event.get("type")
+
+                    # =========================
+                    # 중간 STT
+                    # =========================
+
+                    if (
+                        event_type ==
+                        "conversation.item."
+                        "input_audio_transcription.delta"
+                    ):
+
+                        delta = event.get("delta", "")
+
+                        if delta:
+
+                            print(
+                                "[Realtime partial]",
+                                delta
+                            )
+
+                            await websocket.send_json({
+                                "type": "partial",
+                                "text": delta,
+                                "itemId": event.get(
+                                    "item_id"
+                                )
+                            })
+
+                    # =========================
+                    # 최종 STT
+                    # =========================
+
+                    elif (
+                        event_type ==
+                        "conversation.item."
+                        "input_audio_transcription.completed"
+                    ):
+
+                        transcript = event.get(
+                            "transcript",
+                            ""
+                        )
+
+                        print(
+                            "[Realtime final]",
+                            transcript
+                        )
+
+                        await websocket.send_json({
+                            "type": "final",
+                            "text": transcript,
+                            "itemId": event.get(
+                                "item_id"
+                            )
+                        })
+
+                    # =========================
+                    # OpenAI 오류
+                    # =========================
+
+                    elif event_type == "error":
+
+                        print(
+                            "[Realtime STT OpenAI Error]",
+                            json.dumps(
+                                event,
+                                ensure_ascii=False
+                            )
+                        )
+
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": event
+                                .get("error", {})
+                                .get(
+                                    "message",
+                                    "OpenAI Realtime 오류"
+                                )
+                        })
+
+                    # =========================
+                    # 세션 설정 완료
+                    # =========================
+
+                    elif event_type == "session.updated":
+
+                        print(
+                            "[Realtime STT] "
+                            "OpenAI session ready"
+                        )
+
+                        await websocket.send_json({
+                            "type": "ready"
+                        })
+
+
+            # =====================================
+            # 양방향 처리를 동시에 실행
+            # =====================================
+
+            client_task = asyncio.create_task(
+                client_to_openai()
+            )
+
+            openai_task = asyncio.create_task(
+                openai_to_client()
+            )
+
+            done, pending = await asyncio.wait(
+                [
+                    client_task,
+                    openai_task
+                ],
+                return_when=asyncio.FIRST_COMPLETED
+            )
+
+            # 한쪽 연결이 끝나면 나머지도 종료
+            for task in pending:
+                task.cancel()
+
+            await asyncio.gather(
+                *pending,
+                return_exceptions=True
+            )
+
+    except Exception as e:
+
+        print(
+            "[Realtime STT Error]",
+            repr(e)
+        )
+
+        try:
+            await websocket.send_json({
+                "type": "error",
+                "message": str(e)
+            })
+        except Exception:
+            pass
+
+    finally:
+
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+
+        print(
+            "[Realtime STT] Connection closed"
+        )
 
 # ======================
 # STT 관련
