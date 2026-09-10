@@ -38,7 +38,7 @@ client = OpenAI(
 
 OPENAI_REALTIME_URL = (
     "wss://api.openai.com/v1/realtime"
-    "?model=gpt-live-transcribe"
+    "?model=gpt-realtime-2.1-mini"
 )
 
 REALTIME_STT_SESSION_CONFIG = {
