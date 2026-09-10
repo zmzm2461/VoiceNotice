@@ -243,13 +243,14 @@ public class RealtimeSttClient {
                                     );
 
 
-                                    /*
-                                     * =============================
-                                     * FINAL STT → DB 저장
-                                     * =============================
-                                     *
-                                     * GPT 후처리는 아직 하지 않는다.
-                                     */
+                                    // 프론트로 최종 문장 전송
+                                    webSocketSenderService.sendRealtimeTranscript(
+                                            sessionId,
+                                            "final",
+                                            finalText
+                                    );
+
+                                    // DB 저장
                                     sttOrchestrationService.saveRealtimeFinal(
                                             sessionId,
                                             finalText
