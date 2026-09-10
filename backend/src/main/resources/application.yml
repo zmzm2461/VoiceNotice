@@ -30,6 +30,7 @@ app:
     base-url: ${AI_BASE_URL:http://localhost:8000}
     stt-path: ${AI_STT_PATH:/stt}
     refine-path: ${AI_REFINE_PATH:/refine}
+    realtime-url: ${AI_REALTIME_URL:ws://localhost:8000/ws/stt}
 
 file:
   upload-dir: ${FILE_UPLOAD_DIR:storage/audio}

@@ -1,5 +1,6 @@
 package com.example.voicenotice.audio.websocket;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.BinaryMessage;
@@ -8,10 +9,14 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 import org.springframework.web.util.UriComponentsBuilder;
+import com.example.voicenotice.stt.client.RealtimeSttClient;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class AudioStreamWebSocketHandler extends AbstractWebSocketHandler {
+
+    private final RealtimeSttClient realtimeSttClient;
 
     private static final String SESSION_ID_KEY = "intercomSessionId";
 
@@ -39,6 +44,8 @@ public class AudioStreamWebSocketHandler extends AbstractWebSocketHandler {
                 sessionId
         );
 
+        realtimeSttClient.connect(sessionId);
+
         log.info(
                 "[Realtime Audio] WebSocket connected. sessionId={}, socketId={}",
                 sessionId,
@@ -58,26 +65,37 @@ public class AudioStreamWebSocketHandler extends AbstractWebSocketHandler {
 
         Long sessionId = getSessionId(session);
 
-        int byteSize = message.getPayloadLength();
 
-        log.info(
-                "[Realtime Audio] PCM received. sessionId={}, bytes={}",
-                sessionId,
-                byteSize
+        if (sessionId == null) {
+
+            log.warn(
+                    "[Realtime Audio] PCM received without sessionId"
+            );
+
+            return;
+        }
+
+
+        byte[] pcmBytes =
+                new byte[message.getPayload().remaining()];
+
+
+        message.getPayload().get(
+                pcmBytes
         );
 
-        /*
-         * 지금 ②단계에서는 여기까지만 한다.
-         *
-         * 다음 ③단계에서:
-         *
-         * realtimeSttClient.sendAudio(
-         *     sessionId,
-         *     pcmBytes
-         * );
-         *
-         * 를 넣어서 Python으로 전달할 예정.
-         */
+
+        log.debug(
+                "[Realtime Audio] PCM received. sessionId={}, bytes={}",
+                sessionId,
+                pcmBytes.length
+        );
+
+
+        realtimeSttClient.sendAudio(
+                sessionId,
+                pcmBytes
+        );
     }
 
 
@@ -95,20 +113,32 @@ public class AudioStreamWebSocketHandler extends AbstractWebSocketHandler {
 
         Long sessionId = getSessionId(session);
 
-        String payload = message.getPayload();
+
+        if (sessionId == null) {
+
+            log.warn(
+                    "[Realtime Audio] Control message without sessionId"
+            );
+
+            return;
+        }
+
+
+        String payload =
+                message.getPayload();
+
 
         log.info(
-                "[Realtime Audio] Text message. sessionId={}, payload={}",
+                "[Realtime Audio] Control received. sessionId={}, payload={}",
                 sessionId,
                 payload
         );
 
-        /*
-         * 지금은 로그만 확인한다.
-         *
-         * 다음 ③단계에서
-         * commit이면 Python /ws/stt로 전달한다.
-         */
+
+        realtimeSttClient.sendControl(
+                sessionId,
+                payload
+        );
     }
 
 
@@ -133,6 +163,15 @@ public class AudioStreamWebSocketHandler extends AbstractWebSocketHandler {
     ) {
 
         Long sessionId = getSessionId(session);
+
+
+        if (sessionId != null) {
+
+            realtimeSttClient.close(
+                    sessionId
+            );
+        }
+
 
         log.info(
                 "[Realtime Audio] WebSocket closed. sessionId={}, status={}",

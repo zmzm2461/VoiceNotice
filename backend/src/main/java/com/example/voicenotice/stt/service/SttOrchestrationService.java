@@ -14,6 +14,7 @@ import com.example.voicenotice.transcript.entity.FinalTranscript;
 import com.example.voicenotice.transcript.entity.TranscriptChunk;
 import com.example.voicenotice.transcript.repository.FinalTranscriptRepository;
 import com.example.voicenotice.transcript.repository.TranscriptChunkRepository;
+import com.example.voicenotice.session.repository.IntercomSessionRepository;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -41,6 +42,7 @@ public class SttOrchestrationService {
     private final IntercomLogService intercomLogService;
     private final SimpMessagingTemplate messagingTemplate;
     private final ConversationMessageService conversationMessageService;
+    private final IntercomSessionRepository intercomSessionRepository;
 
     /**
      * 현재 구조:
@@ -260,5 +262,78 @@ public class SttOrchestrationService {
                 finalTranscript,
                 log.getId()
         );
+    }
+
+    @Transactional
+    public TranscriptChunk saveRealtimeFinal(
+            Long sessionId,
+            String finalText
+    ) {
+
+        if (finalText == null || finalText.isBlank()) {
+
+            System.out.println(
+                    "[Realtime FINAL 저장 생략] 빈 텍스트. sessionId="
+                            + sessionId
+            );
+
+            return null;
+        }
+
+
+        /*
+         * 1. 실제 인터폰 세션 조회
+         */
+        IntercomSession intercomSession =
+                intercomSessionRepository.findById(sessionId)
+                        .orElseThrow(
+                                () -> new IllegalArgumentException(
+                                        "IntercomSession not found: "
+                                                + sessionId
+                                )
+                        );
+
+
+        /*
+         * 2. 현재 마지막 chunkOrder 확인
+         *
+         * 기존 데이터가 없으면 0부터 시작
+         */
+        int nextChunkOrder =
+                transcriptChunkRepository
+                        .findTopBySession_IdOrderByChunkOrderDesc(sessionId)
+                        .map(chunk -> chunk.getChunkOrder() + 1)
+                        .orElse(0);
+
+
+        /*
+         * 3. Realtime STT는 현재 confidence를
+         * 사용하지 않으므로 null 저장
+         */
+        TranscriptChunk transcriptChunk =
+                new TranscriptChunk(
+                        intercomSession,
+                        nextChunkOrder,
+                        finalText.trim(),
+                        null
+                );
+
+
+        /*
+         * 4. DB 저장
+         */
+        TranscriptChunk saved =
+                transcriptChunkRepository.save(transcriptChunk);
+
+
+        System.out.println(
+                "[Realtime FINAL DB 저장 완료]"
+                        + " sessionId=" + sessionId
+                        + ", chunkOrder=" + nextChunkOrder
+                        + ", text=" + saved.getRawText()
+        );
+
+
+        return saved;
     }
 }

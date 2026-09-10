@@ -11,6 +11,7 @@ services:
       AI_BASE_URL: http://ai-server:8000
       AI_STT_PATH: /stt
       AI_REFINE_PATH: /refine
+      AI_REALTIME_URL: ws://ai-server:8000/ws/stt
 
       FILE_UPLOAD_DIR: /app/storage/audio
 

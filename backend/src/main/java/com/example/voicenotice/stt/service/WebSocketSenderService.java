@@ -1,5 +1,6 @@
 package com.example.voicenotice.stt.service;
 
+import com.example.voicenotice.stt.dto.RealtimeTranscriptMessage;
 import com.example.voicenotice.stt.dto.CallStatusMessage;
 import com.example.voicenotice.stt.dto.ReplyMessage;
 import com.example.voicenotice.stt.dto.TranscriptMessage;
@@ -38,6 +39,22 @@ public class WebSocketSenderService {
         messagingTemplate.convertAndSend(
                 "/topic/sessions/" + sessionId + "/messages",
                 new ReplyMessage(sessionId, sender, text)
+        );
+    }
+
+    public void sendRealtimeTranscript(
+            Long sessionId,
+            String type,
+            String text
+    ) {
+
+        messagingTemplate.convertAndSend(
+                "/topic/sessions/" + sessionId + "/realtime-transcripts",
+                new RealtimeTranscriptMessage(
+                        sessionId,
+                        type,
+                        text
+                )
         );
     }
 }
