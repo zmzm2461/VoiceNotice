@@ -326,6 +326,20 @@ public class SttOrchestrationService {
                 transcriptChunkRepository.save(transcriptChunk);
 
 
+        /*
+         * Realtime final 한 문장을
+         * 채팅 메시지 한 개로 저장
+         *
+         * 이 메시지는 동시에
+         * /topic/sessions/{sessionId}/messages
+         * 로 프론트에도 전송됨
+         */
+        conversationMessageService.saveVisitorSttMessage(
+                intercomSession,
+                finalText.trim()
+        );
+
+
         System.out.println(
                 "[Realtime FINAL DB 저장 완료]"
                         + " sessionId=" + sessionId
