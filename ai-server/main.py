@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
+import math
 import tempfile
 import os
 import json
@@ -31,6 +32,21 @@ model = WhisperModel(
 client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
 )
+
+class QuickReplyCandidate(BaseModel):
+    replyCode: int
+    text: str
+
+
+class QuickReplySuggestRequest(BaseModel):
+    query: str
+    candidates: List[QuickReplyCandidate]
+
+
+class QuickReplySuggestion(BaseModel):
+    replyCode: int
+    text: str
+    score: float
 
 # ======================
 # OpenAI Realtime STT 설정
@@ -917,3 +933,77 @@ def summarize(req: SummaryRequest):
     return SummaryResponse(
         summary=make_simple_summary(corrected_text)
     )
+
+def cosine_similarity(a, b):
+    dot = sum(x * y for x, y in zip(a, b))
+
+    norm_a = math.sqrt(sum(x * x for x in a))
+    norm_b = math.sqrt(sum(y * y for y in b))
+
+    if norm_a == 0 or norm_b == 0:
+        return 0.0
+
+    return dot / (norm_a * norm_b)
+
+@app.post(
+    "/quick-replies/suggest",
+    response_model=List[QuickReplySuggestion]
+)
+def suggest_quick_replies(
+    request: QuickReplySuggestRequest
+):
+
+    if not request.query.strip():
+        return []
+
+    texts = [
+        request.query,
+        *[candidate.text for candidate in request.candidates]
+    ]
+
+    response = client.embeddings.create(
+        model="text-embedding-3-small",
+        input=texts
+    )
+
+    embeddings = [
+        item.embedding
+        for item in response.data
+    ]
+
+    query_embedding = embeddings[0]
+    candidate_embeddings = embeddings[1:]
+
+    results = []
+
+    for candidate, embedding in zip(
+        request.candidates,
+        candidate_embeddings
+    ):
+
+        score = cosine_similarity(
+            query_embedding,
+            embedding
+        )
+
+        results.append(
+            QuickReplySuggestion(
+                replyCode=candidate.replyCode,
+                text=candidate.text,
+                score=round(score, 4)
+            )
+        )
+
+    results.sort(
+        key=lambda x: x.score,
+        reverse=True
+    )
+
+    # 유사도가 너무 낮은 문장은 추천하지 않음
+    results = [
+        result
+        for result in results
+        if result.score >= 0.45
+    ]
+
+    return results[:5]

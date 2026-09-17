@@ -2,6 +2,7 @@ package com.example.voicenotice.quickreply.controller;
 
 import com.example.voicenotice.common.response.ApiResponse;
 import com.example.voicenotice.quickreply.dto.QuickReplyResponse;
+import com.example.voicenotice.quickreply.dto.QuickReplySuggestionResponse;
 import com.example.voicenotice.quickreply.service.QuickReplyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +20,16 @@ public class QuickReplyController {
     public ApiResponse<List<QuickReplyResponse>> getReplies() {
         return ApiResponse.ok(
                 quickReplyService.getReplies()
+        );
+    }
+
+    @GetMapping("/suggest")
+    public ApiResponse<List<QuickReplySuggestionResponse>> suggest(
+            @RequestParam String q
+    ) {
+
+        return ApiResponse.ok(
+                quickReplyService.suggest(q)
         );
     }
 }
