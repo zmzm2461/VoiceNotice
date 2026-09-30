@@ -1,8 +1,9 @@
-from fastapi import FastAPI, UploadFile, File, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+
 from typing import Optional, List
 import math
-import tempfile
 import os
 import json
 import re
@@ -10,43 +11,51 @@ import asyncio
 import base64
 import websockets
 
-from faster_whisper import WhisperModel
 from openai import OpenAI
 
+# ======================
+# FastAPI 생성
+# ======================
+
 app = FastAPI()
-
-# ======================
-# Whisper 모델 로드
-# ======================
-
-model = WhisperModel(
-    "base",
-    device="cpu",
-    compute_type="int8"
-)
 
 # ======================
 # OpenAI 설정
 # ======================
 
+
 client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
 )
 
-class QuickReplyCandidate(BaseModel):
-    replyCode: int
+
+# ======================
+# TTS 관련
+# ======================
+
+class TTSRequest(BaseModel):
     text: str
 
 
-class QuickReplySuggestRequest(BaseModel):
-    query: str
-    candidates: List[QuickReplyCandidate]
+@app.post("/tts")
+async def tts(request: TTSRequest):
 
+    print("[TTS REQUEST]", request.text)
 
-class QuickReplySuggestion(BaseModel):
-    replyCode: int
-    text: str
-    score: float
+    response = client.audio.speech.create(
+        model="tts-1",
+        voice="alloy",
+        input=request.text,
+        response_format="pcm"
+    )
+
+    print("[TTS CREATED]")
+
+    return StreamingResponse(
+        response.iter_bytes(),
+        media_type="audio/pcm"
+    )
+
 
 # ======================
 # OpenAI Realtime STT 설정
@@ -620,62 +629,6 @@ async def realtime_stt(websocket: WebSocket):
 # ======================
 # STT 관련
 # ======================
-
-class SttResponse(BaseModel):
-    rawText: str
-    language: Optional[str] = None
-
-
-@app.post("/stt", response_model=SttResponse)
-async def stt(file: UploadFile = File(...)):
-    suffix = os.path.splitext(file.filename)[1] if file.filename else ".wav"
-
-    tmp = tempfile.NamedTemporaryFile(
-        delete=False,
-        suffix=suffix
-    )
-
-    try:
-        content = await file.read()
-
-        print("uploaded filename:", file.filename)
-        print("uploaded size:", len(content))
-
-        tmp.write(content)
-        tmp.close()
-
-        print("temp file:", tmp.name)
-        print("temp file size:", os.path.getsize(tmp.name))
-
-        segments, info = model.transcribe(
-            tmp.name,
-            beam_size=5,
-            language="ko",
-            vad_filter=False
-        )
-
-        segment_list = list(segments)
-
-        print("segment count:", len(segment_list))
-
-        for seg in segment_list:
-            print("segment:", seg.start, seg.end, seg.text)
-
-        text = "".join([seg.text for seg in segment_list]).strip()
-
-        print("STT text:", text)
-
-        return SttResponse(
-            rawText=text,
-            language=getattr(info, "language", None)
-        )
-
-    finally:
-        try:
-            os.unlink(tmp.name)
-        except Exception:
-            pass
-
 
 # ======================
 # Refine 관련
