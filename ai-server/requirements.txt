@@ -3,6 +3,5 @@ uvicorn[standard]
 openai
 python-multipart
 requests
-faster-whisper
 pydantic
 websockets>=14

@@ -1,5 +1,6 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import StreamingResponse
+from openai import OpenAI, AsyncOpenAI
 from pydantic import BaseModel
 
 from typing import Optional, List
@@ -11,7 +12,6 @@ import asyncio
 import base64
 import websockets
 
-from openai import OpenAI
 
 # ======================
 # FastAPI 생성
@@ -19,12 +19,17 @@ from openai import OpenAI
 
 app = FastAPI()
 
+
 # ======================
 # OpenAI 설정
 # ======================
 
-
 client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY")
+)
+
+# TTS 스트리밍용 비동기 클라이언트
+tts_client = AsyncOpenAI(
     api_key=os.getenv("OPENAI_API_KEY")
 )
 
@@ -37,25 +42,38 @@ class TTSRequest(BaseModel):
     text: str
 
 
+async def tts_audio_stream(text: str):
+
+    async with tts_client.audio.speech.with_streaming_response.create(
+        model="tts-1",
+        voice="alloy",
+        input=text,
+        response_format="pcm"
+    ) as response:
+
+        async for chunk in response.iter_bytes(
+                chunk_size=4096
+        ):
+            yield chunk
+
+
 @app.post("/tts")
 async def tts(request: TTSRequest):
 
-    print("[TTS REQUEST]", request.text)
+    text = request.text.strip()
 
-    response = client.audio.speech.create(
-        model="tts-1",
-        voice="alloy",
-        input=request.text,
-        response_format="pcm"
-    )
+    if not text:
+        raise HTTPException(
+            status_code=400,
+            detail="TTS text는 비어 있을 수 없습니다."
+        )
 
-    print("[TTS CREATED]")
+    print("[TTS REQUEST]", text)
 
     return StreamingResponse(
-        response.iter_bytes(),
+        tts_audio_stream(text),
         media_type="audio/pcm"
     )
-
 
 # ======================
 # OpenAI Realtime STT 설정

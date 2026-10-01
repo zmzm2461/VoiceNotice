@@ -21,6 +21,37 @@ public class ConversationMessageService {
     private final SimpMessagingTemplate messagingTemplate;
 
     @Transactional
+    public ConversationMessage saveUserTextMessage(
+            IntercomSession session,
+            String text
+    ) {
+
+        ConversationMessage saved =
+                conversationMessageRepository.save(
+                        new ConversationMessage(
+                                session,
+                                SenderType.USER,
+                                MessageType.TEXT,
+                                text
+                        )
+                );
+
+
+        messagingTemplate.convertAndSend(
+                "/topic/sessions/"
+                        + session.getId()
+                        + "/messages",
+
+                ConversationMessageResponse.from(
+                        saved
+                )
+        );
+
+
+        return saved;
+    }
+
+    @Transactional
     public ConversationMessage saveVisitorSttMessage(
             IntercomSession session,
             String text

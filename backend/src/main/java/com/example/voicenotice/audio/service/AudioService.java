@@ -5,12 +5,9 @@ import com.example.voicenotice.audio.entity.AudioChunk;
 import com.example.voicenotice.audio.repository.AudioChunkRepository;
 import com.example.voicenotice.session.entity.IntercomSession;
 import com.example.voicenotice.session.service.SessionService;
-import com.example.voicenotice.stt.service.SttOrchestrationService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -22,19 +19,16 @@ import java.nio.file.StandardCopyOption;
 public class AudioService {
     private final AudioChunkRepository audioChunkRepository;
     private final SessionService sessionService;
-    private final SttOrchestrationService sttOrchestrationService;
 
     @Value("${file.upload-dir:storage/audio}")
     private String uploadDir;
 
     public AudioService(
             AudioChunkRepository audioChunkRepository,
-            SessionService sessionService,
-            SttOrchestrationService sttOrchestrationService
+            SessionService sessionService
     ) {
         this.audioChunkRepository = audioChunkRepository;
         this.sessionService = sessionService;
-        this.sttOrchestrationService = sttOrchestrationService;
     }
 
     public record LastChunkInfo(Long sessionId, Integer lastChunkOrder, Integer nextChunkOrder) {}
@@ -75,18 +69,6 @@ public class AudioService {
                 .orElseGet(() -> new AudioChunk(session, chunkOrder, savedName, savedPath.toString(), durationMs));
 
         AudioChunk savedChunk = audioChunkRepository.save(audioChunk);
-
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        sttOrchestrationService.transcribeChunkAsync(
-                                savedChunk.getId(),
-                                isLast
-                        );
-                    }
-                }
-        );
 
         return new ChunkUploadResponse(
                 sessionId,

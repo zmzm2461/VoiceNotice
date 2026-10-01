@@ -19,25 +19,22 @@ public class TtsClient {
     private final WebClient webClient;
 
 
-    @Value("${AI_BASE_URL}")
+    @Value("${app.ai.base-url}")
     private String aiUrl;
 
+    @Value("${app.ai.tts-path:/tts}")
+    private String ttsPath;
 
 
     public Flux<DataBuffer> requestTts(String text) {
 
-
         return webClient.post()
-                .uri(aiUrl + "/tts")
+                .uri(aiUrl + ttsPath)
                 .bodyValue(
-                        Map.of(
-                                "text",
-                                text
-                        )
+                        Map.of("text", text)
                 )
                 .retrieve()
                 .bodyToFlux(DataBuffer.class);
-
     }
 
 }
