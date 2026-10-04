@@ -93,7 +93,7 @@ public class TtsAudioWebSocketHandler extends TextWebSocketHandler {
 
         sendText(
                 deviceId,
-                "{\"type\":\"tts_start\",\"sampleRate\":24000}"
+                "{\"type\":\"tts_start\",\"sampleRate\":16000,\"bitsPerSample\":16,\"channels\":1}"
         );
 
 

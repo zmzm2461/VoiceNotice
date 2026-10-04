@@ -44,6 +44,13 @@ class TTSRequest(BaseModel):
 
 async def tts_audio_stream(text: str):
 
+    # 24kHz -> 16kHz 리샘플링 상태
+    rate_state = None
+
+    # PCM16은 샘플 하나가 2바이트라
+    # 혹시 청크가 홀수 바이트로 끊겼을 때 보관
+    remainder = b""
+
     async with tts_client.audio.speech.with_streaming_response.create(
         model="tts-1",
         voice="alloy",
@@ -54,7 +61,43 @@ async def tts_audio_stream(text: str):
         async for chunk in response.iter_bytes(
                 chunk_size=4096
         ):
-            yield chunk
+
+            if not chunk:
+                continue
+
+            # 이전 청크의 남은 1바이트가 있다면 붙임
+            data = remainder + chunk
+
+            # PCM16 = 2바이트 단위
+            if len(data) % 2 != 0:
+                remainder = data[-1:]
+                data = data[:-1]
+            else:
+                remainder = b""
+
+            if not data:
+                continue
+
+            # -----------------------------
+            # OpenAI TTS
+            # 24kHz PCM16 mono
+            #
+            # ↓
+            #
+            # ESP32용
+            # 16kHz PCM16 mono
+            # -----------------------------
+            pcm_16k, rate_state = audioop.ratecv(
+                data,
+                2,          # sample width: 16bit = 2byte
+                1,          # mono
+                24000,      # 입력 sample rate
+                16000,      # 출력 sample rate
+                rate_state
+            )
+
+            if pcm_16k:
+                yield pcm_16k
 
 
 @app.post("/tts")
