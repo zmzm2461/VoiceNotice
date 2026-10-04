@@ -905,6 +905,26 @@ def summarize(req: SummaryRequest):
         summary=make_simple_summary(corrected_text)
     )
 
+# ======================
+# Quick Reply 관련
+# ======================
+
+class QuickReplyCandidate(BaseModel):
+    replyCode: int
+    text: str
+
+
+class QuickReplySuggestRequest(BaseModel):
+    query: str
+    candidates: List[QuickReplyCandidate]
+
+
+class QuickReplySuggestion(BaseModel):
+    replyCode: int
+    text: str
+    score: float
+
+
 def cosine_similarity(a, b):
     dot = sum(x * y for x, y in zip(a, b))
 
