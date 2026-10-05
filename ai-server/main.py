@@ -11,6 +11,7 @@ import re
 import asyncio
 import base64
 import websockets
+import audioop
 
 
 # ======================
