@@ -11,6 +11,7 @@ import org.springframework.messaging.MessageDeliveryException;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
+import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
@@ -37,7 +38,14 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     ) {
 
         StompHeaderAccessor accessor =
-                StompHeaderAccessor.wrap(message);
+                MessageHeaderAccessor.getAccessor(
+                        message,
+                        StompHeaderAccessor.class
+                );
+
+        if (accessor == null) {
+            return message;
+        }
 
         StompCommand command = accessor.getCommand();
 
@@ -45,17 +53,10 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             return message;
         }
 
-        /*
-         * STOMP 연결할 때 JWT 인증
-         */
         if (StompCommand.CONNECT.equals(command)) {
             authenticate(accessor);
         }
 
-        /*
-         * /topic/sessions/{sessionId}/...
-         * 구독할 때 해당 세션 접근 권한 검사
-         */
         if (StompCommand.SUBSCRIBE.equals(command)) {
             authorizeSubscription(accessor);
         }
@@ -69,6 +70,34 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
         String authorization =
                 accessor.getFirstNativeHeader("Authorization");
 
+        // 혹시 프론트/라이브러리에서 소문자로 들어오는 경우도 허용
+        if (authorization == null) {
+            authorization =
+                    accessor.getFirstNativeHeader("authorization");
+        }
+
+        System.out.println(
+                "[STOMP CONNECT] native header keys = "
+                        + accessor.toNativeHeaderMap().keySet()
+        );
+
+        System.out.println(
+                "[STOMP CONNECT] Authorization exists = "
+                        + (authorization != null)
+        );
+
+        if (authorization != null) {
+            System.out.println(
+                    "[STOMP CONNECT] Bearer format = "
+                            + authorization.startsWith("Bearer ")
+            );
+
+            System.out.println(
+                    "[STOMP CONNECT] Authorization length = "
+                            + authorization.length()
+            );
+        }
+
         if (authorization == null ||
                 !authorization.startsWith("Bearer ")) {
 
@@ -77,8 +106,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             );
         }
 
-        String token =
-                authorization.substring(7);
+        String token = authorization.substring(7);
 
         if (!jwtTokenProvider.validateToken(token)) {
             throw new MessageDeliveryException(
@@ -103,10 +131,11 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
                         )
                 );
 
-        /*
-         * STOMP 세션에 로그인 사용자 저장
-         */
         accessor.setUser(authentication);
+
+        System.out.println(
+                "[STOMP CONNECT] 인증 성공 userId=" + userId
+        );
     }
 
 
